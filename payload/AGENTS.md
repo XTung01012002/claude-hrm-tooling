@@ -19,6 +19,7 @@
 - Chạy thật trong **Docker (PHP 8.2.31)**. Local PHP mới hơn → `composer install`/`php artisan` local **FAIL**.
 - Test local: `cd source && vendor/bin/phpunit tests/Unit/XTest.php`. Format: `cd source && vendor/bin/pint`. Syntax: `php -l <file>`.
 - Artisan (`route:list`, `php artisan test`, feature test) → chạy **trong Docker**.
+- **Tự format/kiểm sau khi sửa** (Antigravity/Codex không có hook tự động như Claude Code): mỗi khi tạo/sửa 1 file `.php`, hãy **tự chạy** `cd source && vendor/bin/pint <file>` (format) + `php -l <file>` (syntax); nếu file có test tương ứng thì chạy `cd source && vendor/bin/phpunit tests/Unit/<X>Test.php` trước khi báo hoàn tất.
 
 ## Prompt tái dùng
 - Review: `docs/ai/prompts/review.md` · Review/Refactor: `docs/ai/prompts/refactor.md` · Sinh docs FE: `docs/ai/prompts/generate-api-docs.md` · Sinh test: `docs/ai/prompts/generate-test.md`
