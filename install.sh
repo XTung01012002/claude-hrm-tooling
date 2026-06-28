@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Cài bộ AI tooling (CLAUDE.md, docs/ai, .claude/commands, .claude/hooks, api-docs)
-# từ repo này vào một project.
+# Cài bộ AI tooling (CLAUDE.md, AGENTS.md, docs/ai, .claude/commands+hooks,
+#   .agent/workflows cho Antigravity, api-docs) từ repo này vào một project,
+#   + (tùy chọn) Codex global prompts vào ~/.codex/prompts.
 #
 # Usage: ./install.sh /duong-dan/toi/hrm-api
 set -euo pipefail
@@ -25,7 +26,15 @@ done < <(cd "$SRC" && find . -type f -print0)
 
 chmod +x "$TARGET/.claude/hooks/"*.sh 2>/dev/null || true
 
+# (Tùy chọn) Codex global slash commands: ~/.codex/prompts (dùng chung nội dung với .claude/commands)
+if [ -d "$HOME/.codex" ]; then
+  mkdir -p "$HOME/.codex/prompts"
+  cp "$SRC"/.claude/commands/*.md "$HOME/.codex/prompts/" 2>/dev/null \
+    && echo "  + ~/.codex/prompts/ (Codex slash commands: /prompts:review, /prompts:refactor, ...)"
+fi
+
 echo
+echo "Da cai: Claude (.claude/commands+hooks), Antigravity (.agent/workflows), Codex (~/.codex/prompts neu co)."
 echo "Xong phan file."
 echo "CON 1 BUOC THU CONG (settings.local.json khong dong bo: bi gitignore + chua path tuyet doi):"
 echo "  1) Merge khoi \"hooks\" trong hooks-snippet.json vao: $TARGET/.claude/settings.local.json"
