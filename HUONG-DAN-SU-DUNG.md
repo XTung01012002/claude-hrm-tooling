@@ -113,6 +113,7 @@ Mọi logic nằm ở `docs/ai/` dạng markdown thuần. Mỗi công cụ có 1
 | Công cụ | File tự nạp | Ghi chú |
 |---|---|---|
 | **Antigravity** | `AGENTS.md` (project root) | Tự nạp. *(Tuỳ chọn: thêm rule "Always On" trong panel Rules của Antigravity, hoặc đặt file trong thư mục rules của workspace — kiểm tra đúng tên `.agent/rules/` hay `.agents/rules/` trong Settings → Rules của bản bạn đang dùng, 2 tài liệu ghi khác nhau.)* |
+| **Codex** (OpenAI — kể cả extension chạy trong Antigravity) | `AGENTS.md` (root) | Tự đọc từ **git root** đi xuống cwd (sâu hơn = ưu tiên hơn). Global mọi project: `~/.codex/AGENTS.md`. Ghi đè: `AGENTS.override.md`. |
 | **Cursor** | `AGENTS.md` (root) hoặc `.cursor/rules/*.mdc` | `AGENTS.md` đủ dùng; muốn chi tiết hơn thì tạo rule trong `.cursor/rules/`. |
 | **Claude Code** | `CLAUDE.md` (đã có) | Đã tự nạp. |
 | **GitHub Copilot** | `.github/copilot-instructions.md` | Tạo file trỏ về `docs/ai/PROJECT-CONVENTIONS.md` nếu cần. |
