@@ -25,6 +25,12 @@
   - util dùng chung trong `Shared/` (vd `PlatformTime`, `TagNameNormalizer`)
 - Ưu tiên gọi lại method repo/interface đã có hơn là viết logic truy vấn mới.
 - **Khuôn mẫu vàng**: `source/src/Core/Components/OmnichannelChat/SaveZaloAccountStaff/SaveZaloAccountStaffHandler.php` — Handler chỉ inject interface, tái dùng `findZaloAccount`, `syncAccountStaff`, `findActiveCompanyUserUids`, `forgetThreadUserAccess`.
+- **DRY — lặp ≥2 nơi thì tách dùng chung:** nếu code mới/đang sửa lặp cùng 1 logic ở **≥2 file/chỗ** (hoặc copy 1 helper), tách về **1 chỗ** rồi gọi lại, KHÔNG copy. Nơi đặt theo pattern repo:
+  - Hàm thuần/stateless → `Core/<Module>/Shared/<Name>` (như `PlatformTime`, `TagNameNormalizer`) hoặc static method trên enum liên quan.
+  - Tiện ích cross-cutting → `Infrastructure/Shared/Helper.php`.
+  - Behavior chia sẻ giữa nhiều class → Trait ở `Infrastructure/.../Traits/` (vd `ResolvesUsersByAccountPermissionSubject`).
+  - Ví dụ đang lặp cần gom: `preserveRejectedStatus()` (đang copy ở `GetFriendStatusHandler` + `SearchZaloContactHandler`).
+  - **Đừng over-engineer**: chỉ tách khi thật sự dùng ≥2 nơi (hoặc chắc chắn sẽ tái dùng); 1 chỗ dùng → để `private` method, không tạo abstraction thừa.
 
 ---
 
@@ -90,6 +96,7 @@ Theo khuôn `SaveZaloAccountStaff/`:
   - `config/horizon.php`: các queue `chat` / `chat-heavy` / `domain` là **supervisor** trên cùng connection `redis`, đặt `timeout` riêng (chat **60** / chat-heavy **610** / domain **600**) — KHÔNG phải `retry_after` riêng.
   - Quy tắc: `timeout` worker phải **< `retry_after`** của connection, tránh job chạy trùng.
 - **PHP 8.2 + Job cha abstract**: tránh `readonly` ở property của abstract Job cha — fail unserialize với `SerializesModels` (reflection). (Container chạy PHP 8.2.31.)
+- **Job/Queue**: đặt `tries` + `backoff()`; re-query DB trong job nếu dữ liệu có thể stale; `WithoutOverlapping` khi cùng key không được chạy song song; không nuốt exception nếu cần retry (log rồi `throw` lại).
 
 ---
 
@@ -111,3 +118,38 @@ Theo khuôn `SaveZaloAccountStaff/`:
 - **`php artisan ...` hiện boot fail trên local** (thiếu `vendor/laravel/horizon`, và PHP 8.5). Dùng artisan (`route:list`, `make:*`, `php artisan test`, feature test) **trong Docker**. Nếu cần artisan local tạm thời (không commit): comment `App\Providers\HorizonServiceProvider::class` ở `bootstrap/providers.php`.
 - **Format**: `cd source && vendor/bin/pint` (hoặc `vendor/bin/pint --dirty` chỉ file chưa commit) — chạy local OK.
 - **Syntax check**: `php -l <file>` — chạy local OK.
+
+---
+
+## §8. Multi-tenancy & Security
+
+- Query dữ liệu thuộc tenant **LUÔN** filter `company_id` (+ `omnichannel_account_id` / `store_id` khi dữ liệu thuộc account/store). KHÔNG query chỉ bằng `id` cho dữ liệu tenant → rò rỉ chéo công ty.
+  - Verified: mọi method `ZaloContactRepository` pair `company_id` + `omnichannel_account_id` (`findContact`, `paginateContacts`).
+  - Sai: `Model::find($id)`. Đúng: `Model::where('company_id', $companyId)->where('id', $id)->first()`.
+- KHÔNG log token / secret / signature / payload nhạy cảm.
+- Trước khi gọi API ngoài (Zalo): check account tồn tại + đúng `company_id` + `connection_status === CONNECTED`, và validate payload.
+
+---
+
+## §9. Transaction, race condition & webhook
+
+- `DB::transaction()` khi 1 use case ghi **nhiều bảng** cần atomic (vd sync staff: delete + insert + update). KHÔNG bọc transaction cho query đọc đơn giản.
+- `lockForUpdate()` cho read-modify-write dưới đồng thời (verified: `OmnichannelChatRepository::syncAccountStaff`). Cân nhắc unique index / `insertOrIgnore` / check-existing để idempotent.
+- **Webhook**: idempotent + **KHÔNG downgrade trạng thái mới hơn** do event đến trễ/lặp. Verified guard trong `FriendshipEventHandler` (bỏ qua nếu đã `FRIEND`; chỉ reject từ trạng thái pending). Timestamp webhook dùng `PlatformTime::parse` (§5).
+
+---
+
+## §10. List / pagination
+
+- **Whitelist** `sortBy` & `sortOrder` (chỉ cột cho phép) — verified ở 2 lớp: Validation (`'sortBy' => ['in:...']`) + Repository (`ALLOWED_SORT_COLUMNS` + `in_array`). KHÔNG đưa thẳng input vào `orderBy`.
+- LUÔN filter tenant (§8). Escape `% _ \` nếu dùng LIKE cho `search`.
+- Tránh N+1: eager load relation cần dùng, chỉ select field cần. List đã theo Spatie QueryBuilder thì giữ pattern đó.
+
+---
+
+## §11. Sửa code có sẵn — giữ behavior (surgical)
+
+- Chỉ sửa phần liên quan yêu cầu. **KHÔNG tự đổi** (trừ khi được yêu cầu): response shape / tên key / status code / message lỗi tiếng Việt / enum value / tên route / queue / Redis connection / schema / migration / public API.
+- Phân biệt `null` (FE không gửi field) vs `[]` (gửi rỗng để clear) — đừng đổi `?array` thành `array = []`.
+- Thấy vấn đề **ngoài phạm vi** → nêu ra, KHÔNG tự sửa.
+- Thiếu thông tin có thể làm **đổi behavior** (null = clear? empty = xóa hết? API fail có retry?) → **HỎI trước khi sửa**.

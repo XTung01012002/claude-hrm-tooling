@@ -5,7 +5,7 @@
 
 ## 3 rule cốt lõi
 1. **Bám sát code thật — KHÔNG bịa.** Đọc/`grep` xác nhận class/method/field/route tồn tại trước khi dùng; không chắc thì tra cứu, không đoán.
-2. **Reuse-first.** Tìm interface ở `Core/.../Shared/` + repo/util có sẵn trước khi tạo mới. Khuôn mẫu: `source/src/Core/Components/OmnichannelChat/SaveZaloAccountStaff/`.
+2. **Reuse-first + DRY.** Tìm interface ở `Core/.../Shared/` + repo/util có sẵn trước khi tạo mới; lặp cùng logic ≥2 nơi → tách về `Shared/`/`Helper`/Trait, đừng copy. Khuôn mẫu: `source/src/Core/Components/OmnichannelChat/SaveZaloAccountStaff/`.
 3. **Repo code mới ưu tiên Eloquent ORM** (tránh `DB::table()`/raw cho ghi; legacy là ngoại lệ).
 
 ## Khuôn feature
@@ -21,5 +21,5 @@
 - Artisan (`route:list`, `php artisan test`, feature test) → chạy **trong Docker**.
 
 ## Prompt tái dùng
-- Review: `docs/ai/prompts/review.md` · Sinh docs FE: `docs/ai/prompts/generate-api-docs.md` · Sinh test: `docs/ai/prompts/generate-test.md`
+- Review: `docs/ai/prompts/review.md` · Review/Refactor: `docs/ai/prompts/refactor.md` · Sinh docs FE: `docs/ai/prompts/generate-api-docs.md` · Sinh test: `docs/ai/prompts/generate-test.md`
 - Docs FE viết vào `api-docs/<Module>/<Endpoint>.md` (contract-only) — KHÁC `docs/` (logic nội bộ BE).
