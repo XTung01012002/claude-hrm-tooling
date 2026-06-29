@@ -1,6 +1,18 @@
 {
-  "//": "Antigravity hooks (best-effort). XÁC MINH bằng lệnh /hooks trong Antigravity. Nếu không nhận: thử đặt ở .agents/hooks.json hoặc ~/.gemini/config/hooks.json, và chỉnh 'matcher' cho khớp tên tool sửa file của bản bạn.",
+  "//": "Antigravity hooks (best-effort — bản IDE BỎ QUA, chỉ chạy ở bản CLI; enforcement thật nằm ở AGENTS.md). XÁC MINH bằng lệnh /hooks trong Antigravity. Nếu không nhận: thử đặt ở .agents/hooks.json hoặc ~/.gemini/config/hooks.json, và chỉnh 'matcher' cho khớp tên tool sửa file của bản bạn.",
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "run_command|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && bash \"$ROOT/.claude/hooks/block-host-tools.sh\"",
+            "statusMessage": "block-host-tools guard"
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "apply_patch|Edit|Write",
@@ -20,6 +32,17 @@
             "type": "command",
             "command": "ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && bash \"$ROOT/.claude/hooks/run-related-tests.sh\"",
             "timeout": 180
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && bash \"$ROOT/.claude/hooks/session-start.sh\"",
+            "statusMessage": "session-start preflight check"
           }
         ]
       }

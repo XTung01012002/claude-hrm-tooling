@@ -27,3 +27,4 @@ File này chỉ tóm tắt; chi tiết + lý do nằm ở đó.
 - `/scaffold-feature` → sinh template 3 file feature theo chuẩn (`docs/ai/prompts/generate-feature.md`).
 - `/commit-message` → sinh nội dung git commit (`docs/ai/prompts/commit-message.md`).
 - `/refactor` → review/refactor code giữ behavior, có mức độ 🔴🟡🟢 (`docs/ai/prompts/refactor.md`).
+- `/find-reuse` → tìm logic/interface có thể tái sử dụng trước khi tạo mới (`docs/ai/prompts/find-reuse.md`).

@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.0] - 2026-06-29
+
+### Added
+- Bổ sung quy tắc "Tự kiểm tra sau khi sửa code" (soft-hook) vào `AGENTS.md`.
+- Hỗ trợ `find-reuse` qua `docs/ai/prompts/find-reuse.md` làm nguồn chân lý, áp dụng cho cả Claude Code, Codex và Antigravity IDE.
+- Cập nhật `.agent/hooks.json` với `PreToolUse` và `SessionStart` (parity với Codex).
+- Bổ sung ma trận "Tính năng × tool theo THỰC TẾ" vào `HUONG-DAN-SU-DUNG.md`.
+
 ## [1.1.0] - 2026-06-29
 
 ### Added

@@ -18,10 +18,15 @@
 ## Môi trường (QUAN TRỌNG)
 - Chạy thật trong **Docker container `hrm-api` (PHP 8.2.31)**. Host PHP mới hơn chỉ để tham khảo, **không dùng làm chuẩn verify**.
 - Không chạy trực tiếp `php`, `composer`, `php artisan`, `vendor/bin/phpunit`, `vendor/bin/pint` trên host khi kiểm tra code.
-- **Lệnh chuẩn cho AI sau khi sửa PHP**: `make -f Makefile.ai ai-pint FILE=source/...` + `make -f Makefile.ai ai-lint FILE=source/...`; nếu có test tương ứng thì `make -f Makefile.ai ai-test TEST=tests/Unit/<X>Test.php`.
+- Lệnh chuẩn cho AI sau khi sửa PHP: `make -f Makefile.ai ai-pint FILE=source/...` + `make -f Makefile.ai ai-lint FILE=source/...`; nếu có test tương ứng thì `make -f Makefile.ai ai-test TEST=tests/Unit/<X>Test.php`.
 - Artisan chạy qua Docker: `make -f Makefile.ai ai-artisan CMD="route:list"`; kiểm PHP version: `make -f Makefile.ai ai-php CMD="-v"`.
+
+## Tự kiểm tra sau khi sửa code (BẮT BUỘC — môi trường không có hook)
+- Sau khi sửa/sinh `.php`: **TỰ chạy** `make -f Makefile.ai ai-lint FILE=...` (+ `ai-pint`, + `ai-test TEST=...` nếu có test) — coi như bước bắt buộc, không bỏ.
+- **TUYỆT ĐỐI không** chạy `php`/`composer`/`php artisan`/`vendor/bin/phpunit`/`vendor/bin/pint` trên host (đây là vai trò của PreToolUse guard mà IDE không bắn → phải tự kỷ luật).
+- Trước khi tạo class/method mới: **tự tìm reuse** (xem mục find-reuse) trong `Core/Components/<Module>/Shared/`, `Infrastructure/<Module>/Repositories/`, `Infrastructure/Shared/Helper.php`, `*Trait`.
 
 ## Prompt tái dùng (Backed by `docs/ai/prompts/*.md`)
 - Review: `docs/ai/prompts/review.md` · Review/Refactor: `docs/ai/prompts/refactor.md` · Sinh docs FE: `docs/ai/prompts/generate-api-docs.md` · Sinh test: `docs/ai/prompts/generate-test.md`
-- Sinh feature (`/scaffold-feature`): `docs/ai/prompts/generate-feature.md` · Tự sinh git commit (`/commit-message`): `docs/ai/prompts/commit-message.md`.
+- Sinh feature (`/scaffold-feature`): `docs/ai/prompts/generate-feature.md` · Tự sinh git commit (`/commit-message`): `docs/ai/prompts/commit-message.md` · Tìm reuse (`/find-reuse`): `docs/ai/prompts/find-reuse.md`.
 - Docs FE viết vào `api-docs/<Module>/<Endpoint>.md` (contract-only) — KHÁC `docs/` (logic nội bộ BE).

@@ -11,7 +11,7 @@ Triết lý: (1) AI tự bám convention ngay từ đầu (đỡ review sửa nh
 | Thành phần | Đường dẫn | Vai trò |
 |---|---|---|
 | **Nguồn chân lý** | `docs/ai/PROJECT-CONVENTIONS.md` | Toàn bộ rule (§0 cấm bịa, §1 reuse+DRY, §2 layering, §4 ORM, §8 multi-tenancy, §9 transaction/webhook, §10 list, §11 giữ behavior). Dùng cho MỌI AI. |
-| **Prompt tái dùng** | `docs/ai/prompts/{review,generate-api-docs,generate-test,refactor}.md` | Logic cho review / docs FE / test / refactor |
+| **Prompt tái dùng** | `docs/ai/prompts/{review,generate-api-docs,generate-test,refactor,generate-feature,commit-message,find-reuse}.md` | Logic cho review / docs FE / test / refactor / feature / commit / reuse |
 | **Claude Code** | `CLAUDE.md` · `.claude/commands/*` · `.claude/hooks/*` + `.claude/settings.json` + `settings.local.json` | rule + lệnh + hook |
 | **Codex** | `AGENTS.md` · `~/.codex/prompts/*` · `.codex/hooks.json` | rule + lệnh + hook |
 | **Antigravity** | `AGENTS.md` · `.agent/workflows/*` (+ `.agent/hooks.json` cho bản CLI) | rule + lệnh + (soft-hook) |
@@ -24,11 +24,15 @@ Triết lý: (1) AI tự bám convention ngay từ đầu (đỡ review sửa nh
 
 **Bước chung:** mở đúng project (ở git root, nơi có `CLAUDE.md`/`AGENTS.md`) + **phiên mới** → cứ ra yêu cầu bình thường, AI đã tự nạp convention.
 
-| Nền tảng | Rule tự nạp | Lệnh tắt | Auto format/test sau khi sửa |
+| Tính năng | Claude | Antigravity IDE | Codex ext |
 |---|---|---|---|
-| **Claude Code** | `CLAUDE.md` (tự) | `/review` `/api-docs` `/scaffold-test` `/scaffold-feature` `/commit-message` | ✅ Hook thật qua `make -f Makefile.ai ai-*` (PHP 8.2 trong Docker). Cảnh báo nếu host-fallback. |
-| **Codex** | `AGENTS.md` (tự) | gõ `/` → chọn `review`/`refactor`/`api-docs`/`scaffold-test` (hoặc `/prompts:review`…) | ✅ Hook thật (sau khi **Trust** — xem mục C) |
-| **Antigravity** | `AGENTS.md` (tự) | gõ `/` → `review`/`refactor`/`api-docs`/`scaffold-test` (workflows) | ⚙️ Soft-hook: AI **tự chạy** `pint` theo lệnh trong `AGENTS.md` |
+| Rule tự nạp | CLAUDE.md ✅ | AGENTS.md ✅ | AGENTS.md ✅ |
+| Slash/workflow | ✅ commands | ✅ workflows | ⚠️ prompts chập chờn → dựa AGENTS.md |
+| Lint/format + test | ✅ hook thật | ❌ hook (dùng soft-run/AGENTS.md) | ⚠️ hook sau Trust (verify) |
+| PreToolUse guard | ✅ | ❌ (soft trong AGENTS.md) | ⚠️ sau Trust (verify) |
+| find-reuse | ✅ skill+cmd | ✅ workflow | ⚠️ AGENTS.md (+prompt nếu chạy) |
+
++ caveat: Antigravity IDE không chạy hook → enforcement = AGENTS.md tự-tuân; Codex extension cần **Trust** + verify `/hooks`; `~/.codex/prompts` có thể không hiện trong extension.
 
 Ý nghĩa lệnh: `/review` (soát diff theo checklist) · `/refactor` (review/refactor giữ behavior, mức 🔴🟡🟢) · `/api-docs` (sinh docs FE `api-docs/<Module>/<Endpoint>.md`) · `/scaffold-test` (sinh unit test Mockery).
 Với AI khác chưa có lệnh: dán thẳng `docs/ai/prompts/<x>.md` + nội dung cần xử lý.
@@ -52,7 +56,7 @@ cd claude-hrm-tooling
 
 ### 3) Verify nhanh
 - Hỏi (không đính kèm file): *"feature mẫu chuẩn của dự án là gì?"* → phải trả lời `SaveZaloAccountStaff`.
-- Gõ `/` xem có `review`/`refactor`/`api-docs`/`scaffold-test` không.
+- Gõ `/` xem có `review`/`refactor`/`api-docs`/`scaffold-test`/`scaffold-feature`/`commit-message`/`find-reuse` không.
 - (Claude/Codex) sửa thử 1 file `.php` format xấu → kiểm tra có tự `pint` không.
 
 ---
@@ -92,7 +96,7 @@ git pull && ./install.sh /duong-dan/toi/hrm-api
 | Refactor giữ behavior | `/refactor` |
 | Sinh docs FE | `/api-docs` |
 | Sinh test | `/scaffold-test <path>` |
-| Chạy test | `make ai-test TEST=tests/Unit/XTest.php` |
-| Format/lint | `make ai-check FILE=source/path/to/File.php` |
-| Cài máy mới | `./install.sh /path/to/hrm-api` + (Claude) dán `hooks-snippet.json` + (Codex) Trust all |
+| Chạy test | `make -f Makefile.ai ai-test TEST=tests/Unit/XTest.php` |
+| Format/lint | `make -f Makefile.ai ai-check FILE=source/path/to/File.php` |
+| Cài máy mới | `./install.sh /path/to/hrm-api` + (Claude) chỉ cần restart; (Codex) Trust |
 | Đồng bộ thay đổi | `./sync-from-project.sh` → commit → push → (máy kia) pull + install |
