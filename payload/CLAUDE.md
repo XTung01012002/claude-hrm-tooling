@@ -9,15 +9,21 @@ File này chỉ tóm tắt; chi tiết + lý do nằm ở đó.
 3. **Repo code mới ưu tiên Eloquent ORM** (tránh `DB::table()`/raw cho ghi; legacy query-builder là ngoại lệ). (§4)
 
 ## Khuôn feature
-1 feature = `<Feature>Command|Query` + `<Feature>Handler` (`declare(strict_types=1)`, `readonly`, inject interface, `validate()` đầu tiên, `BusinessException(<VN>, <httpCode>)`, return `array`) + `<Feature>ValidationInterface`. Code ở `source/src` (Core/Infrastructure/Presentation); Jobs/Console ở `source/app`.
+1 feature = `<Feature>Command|Query` + `<Feature>Handler` (`declare(strict_types=1)`, `readonly` (trừ property Job cha abstract — xem §5), inject interface, gọi `validate()` đầu tiên, `BusinessException(<VN>, <httpCode>)`, return `array`) + `<Feature>ValidationInterface`. Code ở `source/src` (Core/Infrastructure/Presentation); Jobs/Console ở `source/app`.
+
+## Response envelope (toàn cục — `source/bootstrap/app.php` + `ApiBaseController`)
+- Thành công: `{ "data", "status":"success", "code":200, "message" }` (list thêm `links`, `meta`).
+- Lỗi: `{ "status":"error", "code", "message", "errors"? }`; validation fail → **422**.
 
 ## Môi trường (QUAN TRỌNG)
 - Chạy thật trong **Docker container `hrm-api` (PHP 8.2.31)**. Host PHP có thể mới hơn, nhưng **không dùng làm chuẩn verify**.
 - Không chạy trực tiếp `php`, `composer`, `php artisan`, `vendor/bin/phpunit`, `vendor/bin/pint` trên host khi kiểm tra code.
-- Lệnh chuẩn cho AI: `make ai-lint FILE=source/...`, `make ai-pint FILE=source/...`, `make ai-test TEST=tests/Unit/XTest.php`, `make ai-artisan CMD="route:list"`, `make ai-php CMD="-v"`.
+- Lệnh chuẩn cho AI: `make -f Makefile.ai ai-lint FILE=source/...`, `make -f Makefile.ai ai-pint FILE=source/...`, `make -f Makefile.ai ai-test TEST=tests/Unit/XTest.php`, `make -f Makefile.ai ai-artisan CMD="route:list"`, `make -f Makefile.ai ai-php CMD="-v"`.
 
-## Slash commands
+## Slash commands & Skills (Backed by `docs/ai/prompts/*.md`)
 - `/review` → review diff theo checklist dự án (`docs/ai/prompts/review.md`).
 - `/api-docs` → sinh docs FE contract-only vào `api-docs/<Module>/<Endpoint>.md` (`docs/ai/prompts/generate-api-docs.md`).
 - `/scaffold-test` → sinh unit test Mockery vào `source/tests/Unit/` (`docs/ai/prompts/generate-test.md`).
+- `/scaffold-feature` → sinh template 3 file feature theo chuẩn (`docs/ai/prompts/generate-feature.md`).
+- `/commit-message` → sinh nội dung git commit (`docs/ai/prompts/commit-message.md`).
 - `/refactor` → review/refactor code giữ behavior, có mức độ 🔴🟡🟢 (`docs/ai/prompts/refactor.md`).

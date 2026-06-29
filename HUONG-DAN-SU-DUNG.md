@@ -12,7 +12,7 @@ Triết lý: (1) AI tự bám convention ngay từ đầu (đỡ review sửa nh
 |---|---|---|
 | **Nguồn chân lý** | `docs/ai/PROJECT-CONVENTIONS.md` | Toàn bộ rule (§0 cấm bịa, §1 reuse+DRY, §2 layering, §4 ORM, §8 multi-tenancy, §9 transaction/webhook, §10 list, §11 giữ behavior). Dùng cho MỌI AI. |
 | **Prompt tái dùng** | `docs/ai/prompts/{review,generate-api-docs,generate-test,refactor}.md` | Logic cho review / docs FE / test / refactor |
-| **Claude Code** | `CLAUDE.md` · `.claude/commands/*` · `.claude/hooks/*` + `settings.local.json` | rule + lệnh + hook |
+| **Claude Code** | `CLAUDE.md` · `.claude/commands/*` · `.claude/hooks/*` + `.claude/settings.json` + `settings.local.json` | rule + lệnh + hook |
 | **Codex** | `AGENTS.md` · `~/.codex/prompts/*` · `.codex/hooks.json` | rule + lệnh + hook |
 | **Antigravity** | `AGENTS.md` · `.agent/workflows/*` (+ `.agent/hooks.json` cho bản CLI) | rule + lệnh + (soft-hook) |
 
@@ -26,7 +26,7 @@ Triết lý: (1) AI tự bám convention ngay từ đầu (đỡ review sửa nh
 
 | Nền tảng | Rule tự nạp | Lệnh tắt | Auto format/test sau khi sửa |
 |---|---|---|---|
-| **Claude Code** | `CLAUDE.md` (tự) | `/review` `/api-docs` `/scaffold-test` `/refactor` | ✅ Hook thật qua `make ai-*` (PHP 8.2 trong Docker) |
+| **Claude Code** | `CLAUDE.md` (tự) | `/review` `/api-docs` `/scaffold-test` `/scaffold-feature` `/commit-message` | ✅ Hook thật qua `make -f Makefile.ai ai-*` (PHP 8.2 trong Docker). Cảnh báo nếu host-fallback. |
 | **Codex** | `AGENTS.md` (tự) | gõ `/` → chọn `review`/`refactor`/`api-docs`/`scaffold-test` (hoặc `/prompts:review`…) | ✅ Hook thật (sau khi **Trust** — xem mục C) |
 | **Antigravity** | `AGENTS.md` (tự) | gõ `/` → `review`/`refactor`/`api-docs`/`scaffold-test` (workflows) | ⚙️ Soft-hook: AI **tự chạy** `pint` theo lệnh trong `AGENTS.md` |
 
@@ -46,8 +46,8 @@ cd claude-hrm-tooling
 `install.sh` copy vào project: `CLAUDE.md`, `AGENTS.md`, `docs/ai/`, `.claude/{commands,hooks}`, `.agent/{workflows,hooks.json}`, `.codex/hooks.json`, `api-docs/`; và copy `~/.codex/prompts/` nếu máy có `~/.codex`.
 
 ### 2) Một-lần cho từng nền tảng
-- **Claude Code:** mở `hooks-snippet.json` (trong repo tooling) → dán khối `"hooks"` vào `<project>/.claude/settings.local.json` (chưa có thì tạo mới; có rồi thì chèn thêm key `hooks`). → khởi động lại Claude Code.
-- **Codex:** mở project bằng Codex → nó phát hiện `.codex/hooks.json` và hỏi *"N hooks need review"* → bấm **Trust all** (hoặc Review hooks để xem trước — hook gọi `make ai-*` trong Docker nếu project có Makefile mới). → khởi động lại phiên. (Prompts đã nằm ở `~/.codex/prompts`.)
+- **Claude Code:** Script \`install.sh\` đã tự động merge hook vào \`.claude/settings.local.json\`. Bạn chỉ cần khởi động lại Claude Code.
+- **Codex:** mở project bằng Codex → nó phát hiện `.codex/hooks.json` và hỏi *"N hooks need review"* → bấm **Trust all** (hoặc Review hooks để xem trước — hook gọi `make -f Makefile.ai ai-*` trong Docker). → khởi động lại phiên. (Prompts đã nằm ở `~/.codex/prompts`.)
 - **Antigravity:** chỉ cần mở project (tự đọc `AGENTS.md` + `.agent/workflows/`). → khởi động lại phiên. *(Bản IDE không chạy `.agent/hooks.json` → format dựa vào soft-hook trong `AGENTS.md`; bản CLI thì hook chạy thật.)*
 
 ### 3) Verify nhanh
@@ -58,9 +58,9 @@ cd claude-hrm-tooling
 ---
 
 ## D. Môi trường (RẤT QUAN TRỌNG — local ≠ Docker)
-- Chạy thật trong **Docker container `hrm-api` (PHP 8.2.31)**. Host PHP mới hơn không dùng làm chuẩn verify.
-- Không chạy trực tiếp `php`, `composer`, `php artisan`, `vendor/bin/phpunit`, `vendor/bin/pint` trên host khi kiểm tra code.
-- Lệnh chuẩn cho AI: `make ai-lint FILE=source/...`, `make ai-pint FILE=source/...`, `make ai-check FILE=source/...`, `make ai-test TEST=tests/Unit/XTest.php`, `make ai-artisan CMD="route:list"`.
+- Chạy thật trong **Docker container `hrm-api` (PHP 8.2.31)** thông qua script `Makefile.ai`. Host PHP mới hơn không được dùng làm chuẩn verify. Tooling đã có PreToolUse Guard chặn AI tự động verify trên host.
+- Không chạy trực tiếp `php`, `composer`, `php artisan`, `vendor/bin/phpunit`, `vendor/bin/pint` trên host khi kiểm tra code. Nếu Docker down, hook sẽ fallback xuống host và in log **CẢNH BÁO BÁO XANH GIẢ**.
+- Lệnh chuẩn cho AI: `make -f Makefile.ai ai-lint FILE=source/...`, `make -f Makefile.ai ai-pint FILE=source/...`, `make -f Makefile.ai ai-check FILE=source/...`, `make -f Makefile.ai ai-test TEST=tests/Unit/XTest.php`, `make -f Makefile.ai ai-artisan CMD="route:list"`.
 - Cài deps trong container: `make shell` → `composer install` → `make copy-vendor` (hoặc dùng target composer sẵn có trong `Makefile`).
 
 ---
@@ -77,8 +77,9 @@ git pull && ./install.sh /duong-dan/toi/hrm-api
 
 ---
 
-## F. Bảo mật
-- KHÔNG commit `.claude/settings.local.json` (đã gitignore — chứa path tuyệt đối + có thể chứa allowlist nhạy cảm).
+## F. Bảo mật & Settings
+- **`settings.json` vs `settings.local.json`**: Các rule chung cho project (allowlist các thư mục core) được lưu trong `.claude/settings.json` để chia sẻ giữa team. File `.claude/settings.local.json` chỉ chứa đường dẫn cá nhân (absolute) và bị gitignore.
+- KHÔNG commit `.claude/settings.local.json`. File này có thể chứa PAT do rò rỉ session. Script `install.sh` đã có guard báo động nếu phát hiện PAT trong file này.
 - KHÔNG dán Personal Access Token vào chat/commit. Lỡ lộ → https://github.com/settings/tokens **revoke ngay** + tạo token mới. Repo team có `gitleaks` pre-commit chặn rò rỉ — giữ nguyên.
 
 ---

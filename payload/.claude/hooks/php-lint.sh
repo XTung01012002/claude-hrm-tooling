@@ -33,29 +33,41 @@ esac
 REL="${ABS#$REPO_ROOT/}"
 
 has_make_target() {
-  [ -f "$REPO_ROOT/Makefile" ] && grep -q "^$1:" "$REPO_ROOT/Makefile"
+  [ -f "$REPO_ROOT/Makefile.ai" ]
 }
 
+container_up() {
+  ( cd "$REPO_ROOT/docker/local" 2>/dev/null && docker compose exec -T hrm-api true >/dev/null 2>&1 )
+}
+
+CU=0
+if container_up; then
+  CU=1
+fi
+
 # 1) Kiểm tra cú pháp — chặn nếu lỗi
-if has_make_target ai-lint; then
-  if ! OUT="$(make -C "$REPO_ROOT" ai-lint FILE="$REL" 2>&1)"; then
+if has_make_target ai-lint && [ "$CU" = "1" ]; then
+  if ! OUT="$(make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-lint FILE="$REL" 2>&1)"; then
     {
       echo "[php-lint hook] make ai-lint FAILED:"
       printf '%s\n' "$OUT"
     } >&2
     exit 2
   fi
-elif ! php -l "$ABS" >/dev/null 2>&1; then
-  {
-    echo "[php-lint hook] php -l FAILED:"
-    php -l "$ABS" 2>&1
-  } >&2
-  exit 2
+else
+  echo "[php-lint hook] ⚠️ Makefile.ai/ai-* không có hoặc container down → verify trên HOST php, KHÔNG phải container 8.2.31 — kết quả KHÔNG đáng tin." >&2
+  if ! php -l "$ABS" >/dev/null 2>&1; then
+    {
+      echo "[php-lint hook] php -l FAILED:"
+      php -l "$ABS" 2>&1
+    } >&2
+    exit 2
+  fi
 fi
 
 # 2) Auto-format bằng Pint (không chặn nếu Pint không có)
-if has_make_target ai-pint; then
-  make -C "$REPO_ROOT" ai-pint FILE="$REL" >/dev/null 2>&1 || true
+if has_make_target ai-pint && [ "$CU" = "1" ]; then
+  make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-pint FILE="$REL" >/dev/null 2>&1 || true
 else
   PINT="$REPO_ROOT/source/vendor/bin/pint"
   if [ -x "$PINT" ]; then

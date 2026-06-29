@@ -12,13 +12,22 @@ set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SRC="$REPO_ROOT/source"
-cat >/dev/null 2>&1 || true   # drain stdin (không dùng)
+INPUT="$(cat)"
+if command -v jq >/dev/null 2>&1; then
+  if printf '%s' "$INPUT" | jq -e '.stop_hook_active == true' >/dev/null 2>&1; then
+    exit 0
+  fi
+fi
 
 [ -d "$SRC" ] || exit 0
 cd "$SRC" || exit 0
 
 has_make_target() {
-  [ -f "$REPO_ROOT/Makefile" ] && grep -q "^$1:" "$REPO_ROOT/Makefile"
+  [ -f "$REPO_ROOT/Makefile.ai" ]
+}
+
+container_up() {
+  ( cd "$REPO_ROOT/docker/local" 2>/dev/null && docker compose exec -T hrm-api true >/dev/null 2>&1 )
 }
 
 # Danh sách file PHP đã đổi (unstaged + staged + untracked)
@@ -65,13 +74,15 @@ tests_to_run="$(printf '%s' "$tests_to_run" | sed 's/^ *//')"
 # Không có paired test -> skip êm
 [ -z "$tests_to_run" ] && exit 0
 
-if has_make_target ai-test; then
-  if ! make -C "$REPO_ROOT" ai-test TEST="$tests_to_run"; then
+if has_make_target ai-test && container_up; then
+  if ! make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-test TEST="$tests_to_run"; then
     echo "[run-related-tests hook] Unit test FAILED: ${tests_to_run}" >&2
     exit 2
   fi
   exit 0
 fi
+
+echo "[run-related-tests hook] ⚠️ Makefile.ai/ai-* không có hoặc container down → verify trên HOST php, KHÔNG phải container 8.2.31 — kết quả KHÔNG đáng tin." >&2
 
 [ -x vendor/bin/phpunit ] || {
   echo "[run-related-tests hook] vendor/bin/phpunit không có — bỏ qua related tests" >&2

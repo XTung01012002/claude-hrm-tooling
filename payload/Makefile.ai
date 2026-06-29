@@ -1,0 +1,14 @@
+# payload/Makefile.ai — ai-* targets chạy THẬT trong container hrm-api (PHP 8.2.31).
+# Gọi: make -f Makefile.ai ai-lint FILE=source/src/.../Foo.php
+#      make -f Makefile.ai ai-test TEST=tests/Unit/FooTest.php
+# Giữ ngoài git team qua .git/info/exclude (install.sh thêm dòng "Makefile.ai").
+EXEC := cd docker/local && docker compose exec -T hrm-api
+# strip "source/" để ra path tương đối /var/www/html trong container
+CFILE = $(patsubst source/%,%,$(FILE))
+
+ai-lint:    ; @$(EXEC) php -l "$(CFILE)"
+ai-pint:    ; @$(EXEC) vendor/bin/pint "$(CFILE)"
+ai-check: ai-lint ai-pint
+ai-test:    ; @$(EXEC) vendor/bin/phpunit $(TEST)
+ai-artisan: ; @$(EXEC) php artisan $(CMD)
+ai-php:     ; @$(EXEC) php $(CMD)
