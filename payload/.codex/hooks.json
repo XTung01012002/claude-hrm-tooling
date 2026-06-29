@@ -8,7 +8,7 @@
             "type": "command",
             "command": "ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && bash \"$ROOT/.claude/hooks/format-dirty.sh\"",
             "timeout": 30,
-            "statusMessage": "pint + php -l (dirty files)"
+            "statusMessage": "make ai-pint + ai-lint (dirty PHP files)"
           }
         ]
       }

@@ -16,10 +16,10 @@
 - Lỗi: `{ "status":"error", "code", "message", "errors"? }`; validation fail → **422**.
 
 ## Môi trường (QUAN TRỌNG)
-- Chạy thật trong **Docker (PHP 8.2.31)**. Local PHP mới hơn → `composer install`/`php artisan` local **FAIL**.
-- Test local: `cd source && vendor/bin/phpunit tests/Unit/XTest.php`. Format: `cd source && vendor/bin/pint`. Syntax: `php -l <file>`.
-- Artisan (`route:list`, `php artisan test`, feature test) → chạy **trong Docker**.
-- **Tự format/kiểm sau khi sửa** (Antigravity/Codex không có hook tự động như Claude Code): mỗi khi tạo/sửa 1 file `.php`, hãy **tự chạy** `cd source && vendor/bin/pint <file>` (format) + `php -l <file>` (syntax); nếu file có test tương ứng thì chạy `cd source && vendor/bin/phpunit tests/Unit/<X>Test.php` trước khi báo hoàn tất.
+- Chạy thật trong **Docker container `hrm-api` (PHP 8.2.31)**. Host PHP mới hơn chỉ để tham khảo, **không dùng làm chuẩn verify**.
+- Không chạy trực tiếp `php`, `composer`, `php artisan`, `vendor/bin/phpunit`, `vendor/bin/pint` trên host khi kiểm tra code.
+- **Lệnh chuẩn cho AI sau khi sửa PHP**: `make ai-pint FILE=source/...` + `make ai-lint FILE=source/...`; nếu có test tương ứng thì `make ai-test TEST=tests/Unit/<X>Test.php`.
+- Artisan chạy qua Docker: `make ai-artisan CMD="route:list"`; kiểm PHP version: `make ai-php CMD="-v"`.
 
 ## Prompt tái dùng
 - Review: `docs/ai/prompts/review.md` · Review/Refactor: `docs/ai/prompts/refactor.md` · Sinh docs FE: `docs/ai/prompts/generate-api-docs.md` · Sinh test: `docs/ai/prompts/generate-test.md`

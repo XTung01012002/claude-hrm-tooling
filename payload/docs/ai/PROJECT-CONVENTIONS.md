@@ -113,11 +113,16 @@ Theo khuôn `SaveZaloAccountStaff/`:
 
 ## §7. Lệnh & môi trường (QUAN TRỌNG — local ≠ Docker)
 
-- **Môi trường thật là Docker** (PHP **8.2.31**). Máy local hiện chạy **PHP 8.5** → **không tương thích** deps trong `composer.lock` (lcobucci/clock, openspout, phpspreadsheet yêu cầu 8.2–8.4) → **`composer install` chạy local sẽ fail**. Cài deps phải làm trong container: `make shell` → `composer install` → `make copy-vendor`.
-- **Chạy unit test (local OK)**: `cd source && vendor/bin/phpunit tests/Unit/XTest.php` — unit test thuần (Mockery/Reflection) chạy được trên PHP 8.5 vì không boot app.
-- **`php artisan ...` hiện boot fail trên local** (thiếu `vendor/laravel/horizon`, và PHP 8.5). Dùng artisan (`route:list`, `make:*`, `php artisan test`, feature test) **trong Docker**. Nếu cần artisan local tạm thời (không commit): comment `App\Providers\HorizonServiceProvider::class` ở `bootstrap/providers.php`.
-- **Format**: `cd source && vendor/bin/pint` (hoặc `vendor/bin/pint --dirty` chỉ file chưa commit) — chạy local OK.
-- **Syntax check**: `php -l <file>` — chạy local OK.
+- **Môi trường thật là Docker container `hrm-api`** (PHP **8.2.31**). Host PHP có thể mới hơn (vd PHP 8.5) nên **không dùng làm chuẩn verify**.
+- **Không chạy trực tiếp trên host**: `php`, `composer`, `php artisan`, `vendor/bin/phpunit`, `vendor/bin/pint` khi kiểm tra code. Host PHP mới hơn có thể lint pass syntax không tương thích PHP 8.2.
+- **Lệnh chuẩn cho AI/agent**:
+  - Syntax PHP 8.2: `make ai-lint FILE=source/path/to/File.php`
+  - Format 1 file: `make ai-pint FILE=source/path/to/File.php`
+  - Format + lint 1 file: `make ai-check FILE=source/path/to/File.php`
+  - Unit test: `make ai-test TEST=tests/Unit/XTest.php`
+  - Artisan: `make ai-artisan CMD="route:list"`
+  - Kiểm PHP container: `make ai-php CMD="-v"`
+- Composer/deps vẫn chạy trong container (`make shell` → `composer install` → `make copy-vendor`) hoặc dùng các target composer sẵn có của `Makefile`.
 
 ---
 

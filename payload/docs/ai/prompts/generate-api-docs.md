@@ -12,7 +12,7 @@ Viết tài liệu **contract-only cho FE** của (các) endpoint mới/đổi, 
 ## Bắt buộc — lấy mọi thứ từ CODE THẬT (cấm bịa)
 Đọc theo chuỗi và trích đúng:
 1. **Controller** (`source/src/Presentation/API/Controllers/<Module>/<X>Controller.php`): lấy HTTP method + path từ attribute `#[Get(...)]`/`#[Post(...)]`; xem có middleware auth không.
-2. **Đường dẫn đầy đủ** = prefix `api/v1` (khai ở `source/config/route-attributes.php`) + path trong attribute. Verify (trong Docker, sau khi artisan chạy): `php artisan route:list --path=<...>`. KHÔNG tự ghép/đoán path.
+2. **Đường dẫn đầy đủ** = prefix `api/v1` (khai ở `source/config/route-attributes.php`) + path trong attribute. Verify bằng Docker: `make ai-artisan CMD="route:list --path=<...>"`. KHÔNG tự ghép/đoán path.
 3. **Command/Query** (`Core/Components/<Module>/<Feature>/<Feature>Command|Query.php`): các field FE truyền (bỏ field hệ thống như `companyId` — backend tự lấy từ token).
 4. **Validation _implementation_** (`source/src/Infrastructure/<Module>/Validations/<Feature>Validation.php` — KHÔNG phải `*ValidationInterface` vốn rỗng rule; tìm impl qua binding ở `<Module>ServiceProvider` hoặc theo tên `<Feature>Validation`): lấy `required`/`nullable`/`max`/kiểu để điền cột "Bắt buộc" và ràng buộc.
 5. **Handler** (`<Feature>Handler.php`): lấy shape return + liệt kê các nhánh `BusinessException(message, httpCode)` cho bảng Lỗi.

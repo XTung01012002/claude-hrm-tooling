@@ -55,5 +55,5 @@ class <ClassName>Test extends TestCase
 ## Lưu ý
 - Tên test snake_case: `test_<scenario>_<expected_outcome>`.
 - `tearDown()` luôn `Mockery::close()`; nếu mock thời gian thì thêm `Carbon::setTestNow();`.
-- Chạy kiểm chứng (local): `cd source && vendor/bin/phpunit tests/Unit/<ClassName>Test.php`. (Feature test cần boot app → chạy trong Docker.)
+- Chạy kiểm chứng bằng Docker/PHP 8.2: `make ai-test TEST=tests/Unit/<ClassName>Test.php`. (Feature test cần boot app → vẫn chạy qua Docker.)
 - Nếu không chắc shape return của Handler → đọc lại Handler, đừng đoán.

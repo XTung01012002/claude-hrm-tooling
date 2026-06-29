@@ -17,6 +17,10 @@ cat >/dev/null 2>&1 || true   # drain stdin (không dùng)
 [ -d "$SRC" ] || exit 0
 cd "$SRC" || exit 0
 
+has_make_target() {
+  [ -f "$REPO_ROOT/Makefile" ] && grep -q "^$1:" "$REPO_ROOT/Makefile"
+}
+
 # Danh sách file PHP đã đổi (unstaged + staged + untracked)
 collect_changed() {
   git -C "$REPO_ROOT" diff --name-only --diff-filter=ACM 2>/dev/null
@@ -60,6 +64,19 @@ tests_to_run="$(printf '%s' "$tests_to_run" | sed 's/^ *//')"
 
 # Không có paired test -> skip êm
 [ -z "$tests_to_run" ] && exit 0
+
+if has_make_target ai-test; then
+  if ! make -C "$REPO_ROOT" ai-test TEST="$tests_to_run"; then
+    echo "[run-related-tests hook] Unit test FAILED: ${tests_to_run}" >&2
+    exit 2
+  fi
+  exit 0
+fi
+
+[ -x vendor/bin/phpunit ] || {
+  echo "[run-related-tests hook] vendor/bin/phpunit không có — bỏ qua related tests" >&2
+  exit 0
+}
 
 # Đường dẫn test trong repo này không có khoảng trắng -> word-splitting an toàn.
 # shellcheck disable=SC2086

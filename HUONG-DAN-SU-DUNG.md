@@ -26,7 +26,7 @@ Triết lý: (1) AI tự bám convention ngay từ đầu (đỡ review sửa nh
 
 | Nền tảng | Rule tự nạp | Lệnh tắt | Auto format/test sau khi sửa |
 |---|---|---|---|
-| **Claude Code** | `CLAUDE.md` (tự) | `/review` `/api-docs` `/scaffold-test` `/refactor` | ✅ Hook thật (php -l + pint mỗi lần sửa; phpunit cuối lượt) |
+| **Claude Code** | `CLAUDE.md` (tự) | `/review` `/api-docs` `/scaffold-test` `/refactor` | ✅ Hook thật qua `make ai-*` (PHP 8.2 trong Docker) |
 | **Codex** | `AGENTS.md` (tự) | gõ `/` → chọn `review`/`refactor`/`api-docs`/`scaffold-test` (hoặc `/prompts:review`…) | ✅ Hook thật (sau khi **Trust** — xem mục C) |
 | **Antigravity** | `AGENTS.md` (tự) | gõ `/` → `review`/`refactor`/`api-docs`/`scaffold-test` (workflows) | ⚙️ Soft-hook: AI **tự chạy** `pint` theo lệnh trong `AGENTS.md` |
 
@@ -47,7 +47,7 @@ cd claude-hrm-tooling
 
 ### 2) Một-lần cho từng nền tảng
 - **Claude Code:** mở `hooks-snippet.json` (trong repo tooling) → dán khối `"hooks"` vào `<project>/.claude/settings.local.json` (chưa có thì tạo mới; có rồi thì chèn thêm key `hooks`). → khởi động lại Claude Code.
-- **Codex:** mở project bằng Codex → nó phát hiện `.codex/hooks.json` và hỏi *"N hooks need review"* → bấm **Trust all** (hoặc Review hooks để xem trước — chỉ chạy pint/php -l/phpunit). → khởi động lại phiên. (Prompts đã nằm ở `~/.codex/prompts`.)
+- **Codex:** mở project bằng Codex → nó phát hiện `.codex/hooks.json` và hỏi *"N hooks need review"* → bấm **Trust all** (hoặc Review hooks để xem trước — hook gọi `make ai-*` trong Docker nếu project có Makefile mới). → khởi động lại phiên. (Prompts đã nằm ở `~/.codex/prompts`.)
 - **Antigravity:** chỉ cần mở project (tự đọc `AGENTS.md` + `.agent/workflows/`). → khởi động lại phiên. *(Bản IDE không chạy `.agent/hooks.json` → format dựa vào soft-hook trong `AGENTS.md`; bản CLI thì hook chạy thật.)*
 
 ### 3) Verify nhanh
@@ -58,10 +58,10 @@ cd claude-hrm-tooling
 ---
 
 ## D. Môi trường (RẤT QUAN TRỌNG — local ≠ Docker)
-- Chạy thật trong **Docker (PHP 8.2.31)**. Local PHP mới hơn → `composer install`/`php artisan` local **FAIL**. Cài deps trong container: `make shell` → `composer install` → `make copy-vendor`.
-- Test (local OK): `cd source && vendor/bin/phpunit tests/Unit/XTest.php`.
-- Format: `cd source && vendor/bin/pint`. Syntax: `php -l <file>`.
-- Artisan (`route:list`, `php artisan test`, feature test) → chạy **trong Docker**.
+- Chạy thật trong **Docker container `hrm-api` (PHP 8.2.31)**. Host PHP mới hơn không dùng làm chuẩn verify.
+- Không chạy trực tiếp `php`, `composer`, `php artisan`, `vendor/bin/phpunit`, `vendor/bin/pint` trên host khi kiểm tra code.
+- Lệnh chuẩn cho AI: `make ai-lint FILE=source/...`, `make ai-pint FILE=source/...`, `make ai-check FILE=source/...`, `make ai-test TEST=tests/Unit/XTest.php`, `make ai-artisan CMD="route:list"`.
+- Cài deps trong container: `make shell` → `composer install` → `make copy-vendor` (hoặc dùng target composer sẵn có trong `Makefile`).
 
 ---
 
@@ -91,7 +91,7 @@ git pull && ./install.sh /duong-dan/toi/hrm-api
 | Refactor giữ behavior | `/refactor` |
 | Sinh docs FE | `/api-docs` |
 | Sinh test | `/scaffold-test <path>` |
-| Chạy test | `cd source && vendor/bin/phpunit tests/Unit/XTest.php` |
-| Format | `cd source && vendor/bin/pint` |
+| Chạy test | `make ai-test TEST=tests/Unit/XTest.php` |
+| Format/lint | `make ai-check FILE=source/path/to/File.php` |
 | Cài máy mới | `./install.sh /path/to/hrm-api` + (Claude) dán `hooks-snippet.json` + (Codex) Trust all |
 | Đồng bộ thay đổi | `./sync-from-project.sh` → commit → push → (máy kia) pull + install |

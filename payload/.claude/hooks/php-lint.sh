@@ -30,9 +30,22 @@ case "$FILE" in
   *)  ABS="$REPO_ROOT/$FILE" ;;
 esac
 [ -f "$ABS" ] || exit 0
+REL="${ABS#$REPO_ROOT/}"
+
+has_make_target() {
+  [ -f "$REPO_ROOT/Makefile" ] && grep -q "^$1:" "$REPO_ROOT/Makefile"
+}
 
 # 1) Kiểm tra cú pháp — chặn nếu lỗi
-if ! php -l "$ABS" >/dev/null 2>&1; then
+if has_make_target ai-lint; then
+  if ! OUT="$(make -C "$REPO_ROOT" ai-lint FILE="$REL" 2>&1)"; then
+    {
+      echo "[php-lint hook] make ai-lint FAILED:"
+      printf '%s\n' "$OUT"
+    } >&2
+    exit 2
+  fi
+elif ! php -l "$ABS" >/dev/null 2>&1; then
   {
     echo "[php-lint hook] php -l FAILED:"
     php -l "$ABS" 2>&1
@@ -41,9 +54,13 @@ if ! php -l "$ABS" >/dev/null 2>&1; then
 fi
 
 # 2) Auto-format bằng Pint (không chặn nếu Pint không có)
-PINT="$REPO_ROOT/source/vendor/bin/pint"
-if [ -x "$PINT" ]; then
-  "$PINT" "$ABS" >/dev/null 2>&1 || true
+if has_make_target ai-pint; then
+  make -C "$REPO_ROOT" ai-pint FILE="$REL" >/dev/null 2>&1 || true
+else
+  PINT="$REPO_ROOT/source/vendor/bin/pint"
+  if [ -x "$PINT" ]; then
+    "$PINT" "$ABS" >/dev/null 2>&1 || true
+  fi
 fi
 
 exit 0

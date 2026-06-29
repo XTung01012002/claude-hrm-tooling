@@ -12,9 +12,9 @@ File này chỉ tóm tắt; chi tiết + lý do nằm ở đó.
 1 feature = `<Feature>Command|Query` + `<Feature>Handler` (`declare(strict_types=1)`, `readonly`, inject interface, `validate()` đầu tiên, `BusinessException(<VN>, <httpCode>)`, return `array`) + `<Feature>ValidationInterface`. Code ở `source/src` (Core/Infrastructure/Presentation); Jobs/Console ở `source/app`.
 
 ## Môi trường (QUAN TRỌNG)
-- Chạy thật trong **Docker (PHP 8.2.31)**. Local là **PHP 8.5** → `composer install`/`php artisan` local **fail** (xem §7).
-- Test local: `cd source && vendor/bin/phpunit tests/Unit/XTest.php`. Format: `cd source && vendor/bin/pint`. Syntax: `php -l <file>`.
-- Artisan (`route:list`, `php artisan test`, feature test): chạy trong Docker.
+- Chạy thật trong **Docker container `hrm-api` (PHP 8.2.31)**. Host PHP có thể mới hơn, nhưng **không dùng làm chuẩn verify**.
+- Không chạy trực tiếp `php`, `composer`, `php artisan`, `vendor/bin/phpunit`, `vendor/bin/pint` trên host khi kiểm tra code.
+- Lệnh chuẩn cho AI: `make ai-lint FILE=source/...`, `make ai-pint FILE=source/...`, `make ai-test TEST=tests/Unit/XTest.php`, `make ai-artisan CMD="route:list"`, `make ai-php CMD="-v"`.
 
 ## Slash commands
 - `/review` → review diff theo checklist dự án (`docs/ai/prompts/review.md`).

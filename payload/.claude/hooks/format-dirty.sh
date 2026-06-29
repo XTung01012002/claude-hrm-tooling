@@ -12,6 +12,24 @@ SRC="$REPO_ROOT/source"
 cat >/dev/null 2>&1 || true   # drain stdin nếu hook có truyền (không dùng)
 
 [ -d "$SRC" ] || exit 0
+
+has_make_target() {
+  [ -f "$REPO_ROOT/Makefile" ] && grep -q "^$1:" "$REPO_ROOT/Makefile"
+}
+
+collect_changed() {
+  {
+    git -C "$REPO_ROOT" diff --name-only --diff-filter=ACM
+    git -C "$REPO_ROOT" diff --name-only --diff-filter=ACM --cached
+    git -C "$REPO_ROOT" ls-files --others --exclude-standard
+  } 2>/dev/null | sort -u
+}
+
+USE_AI_MAKE=0
+if has_make_target ai-lint && has_make_target ai-pint; then
+  USE_AI_MAKE=1
+fi
+
 cd "$SRC" || exit 0
 
 # Lint các file .php đã đổi (unstaged + staged + untracked)
@@ -20,18 +38,31 @@ while IFS= read -r f; do
   [ -z "$f" ] && continue
   case "$f" in *.php) ;; *) continue ;; esac
   rel="${f#source/}"
-  [ -f "$rel" ] || continue
-  if ! php -l "$rel" >/dev/null 2>&1; then
+  [ -f "$REPO_ROOT/$f" ] || continue
+  if [ "$USE_AI_MAKE" = "1" ]; then
+    if ! OUT="$(make -C "$REPO_ROOT" ai-lint FILE="$f" 2>&1)"; then
+      echo "[format-dirty] make ai-lint FAILED: $f" >&2
+      printf '%s\n' "$OUT" >&2
+      fail=1
+    fi
+  elif ! php -l "$rel" >/dev/null 2>&1; then
     echo "[format-dirty] php -l FAILED: source/$rel" >&2
     php -l "$rel" >&2
     fail=1
   fi
-done < <( { git -C "$REPO_ROOT" diff --name-only --diff-filter=ACM;
-            git -C "$REPO_ROOT" diff --name-only --diff-filter=ACM --cached;
-            git -C "$REPO_ROOT" ls-files --others --exclude-standard; } 2>/dev/null | sort -u )
+done < <(collect_changed)
 
 # Auto-format file dirty (không chặn)
-[ -x vendor/bin/pint ] && vendor/bin/pint --dirty >/dev/null 2>&1 || true
+if [ "$USE_AI_MAKE" = "1" ]; then
+  while IFS= read -r f; do
+    [ -z "$f" ] && continue
+    case "$f" in *.php) ;; *) continue ;; esac
+    [ -f "$REPO_ROOT/$f" ] || continue
+    make -C "$REPO_ROOT" ai-pint FILE="$f" >/dev/null 2>&1 || true
+  done < <(collect_changed)
+else
+  [ -x vendor/bin/pint ] && vendor/bin/pint --dirty >/dev/null 2>&1 || true
+fi
 
 [ "$fail" = "1" ] && exit 2
 exit 0
