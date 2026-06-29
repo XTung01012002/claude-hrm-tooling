@@ -14,7 +14,11 @@ cat >/dev/null 2>&1 || true   # drain stdin nếu hook có truyền (không dùn
 [ -d "$SRC" ] || exit 0
 
 has_make_target() {
-  [ -f "$REPO_ROOT/Makefile" ] && grep -q "^$1:" "$REPO_ROOT/Makefile"
+  [ -f "$REPO_ROOT/Makefile.ai" ]
+}
+
+container_up() {
+  ( cd "$REPO_ROOT/docker/local" 2>/dev/null && docker compose exec -T hrm-api true >/dev/null 2>&1 )
 }
 
 collect_changed() {
@@ -26,7 +30,7 @@ collect_changed() {
 }
 
 USE_AI_MAKE=0
-if has_make_target ai-lint && has_make_target ai-pint; then
+if has_make_target ai-lint && has_make_target ai-pint && container_up; then
   USE_AI_MAKE=1
 fi
 
@@ -34,21 +38,28 @@ cd "$SRC" || exit 0
 
 # Lint các file .php đã đổi (unstaged + staged + untracked)
 fail=0
+host_warned=0
 while IFS= read -r f; do
   [ -z "$f" ] && continue
   case "$f" in *.php) ;; *) continue ;; esac
   rel="${f#source/}"
   [ -f "$REPO_ROOT/$f" ] || continue
   if [ "$USE_AI_MAKE" = "1" ]; then
-    if ! OUT="$(make -C "$REPO_ROOT" ai-lint FILE="$f" 2>&1)"; then
+    if ! OUT="$(make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-lint FILE="$f" 2>&1)"; then
       echo "[format-dirty] make ai-lint FAILED: $f" >&2
       printf '%s\n' "$OUT" >&2
       fail=1
     fi
-  elif ! php -l "$rel" >/dev/null 2>&1; then
-    echo "[format-dirty] php -l FAILED: source/$rel" >&2
-    php -l "$rel" >&2
-    fail=1
+  else
+    if [ "$host_warned" = "0" ]; then
+      echo "[format-dirty] ⚠️ Makefile.ai/ai-* không có hoặc container down → verify trên HOST php, KHÔNG phải container 8.2.31 — kết quả KHÔNG đáng tin." >&2
+      host_warned=1
+    fi
+    if ! php -l "$rel" >/dev/null 2>&1; then
+      echo "[format-dirty] php -l FAILED: source/$rel" >&2
+      php -l "$rel" >&2
+      fail=1
+    fi
   fi
 done < <(collect_changed)
 
@@ -58,7 +69,7 @@ if [ "$USE_AI_MAKE" = "1" ]; then
     [ -z "$f" ] && continue
     case "$f" in *.php) ;; *) continue ;; esac
     [ -f "$REPO_ROOT/$f" ] || continue
-    make -C "$REPO_ROOT" ai-pint FILE="$f" >/dev/null 2>&1 || true
+    make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-pint FILE="$f" >/dev/null 2>&1 || true
   done < <(collect_changed)
 else
   [ -x vendor/bin/pint ] && vendor/bin/pint --dirty >/dev/null 2>&1 || true

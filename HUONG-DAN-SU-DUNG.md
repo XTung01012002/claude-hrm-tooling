@@ -11,8 +11,8 @@ Triết lý: (1) AI tự bám convention ngay từ đầu (đỡ review sửa nh
 | Thành phần | Đường dẫn | Vai trò |
 |---|---|---|
 | **Nguồn chân lý** | `docs/ai/PROJECT-CONVENTIONS.md` | Toàn bộ rule (§0 cấm bịa, §1 reuse+DRY, §2 layering, §4 ORM, §8 multi-tenancy, §9 transaction/webhook, §10 list, §11 giữ behavior). Dùng cho MỌI AI. |
-| **Prompt tái dùng** | `docs/ai/prompts/{review,generate-api-docs,generate-test,refactor}.md` | Logic cho review / docs FE / test / refactor |
-| **Claude Code** | `CLAUDE.md` · `.claude/commands/*` · `.claude/hooks/*` + `settings.local.json` | rule + lệnh + hook |
+| **Prompt tái dùng** | `docs/ai/prompts/{review,generate-api-docs,generate-test,refactor,generate-feature,commit-message,find-reuse}.md` | Logic cho review / docs FE / test / refactor / feature / commit / reuse |
+| **Claude Code** | `CLAUDE.md` · `.claude/commands/*` · `.claude/hooks/*` + `.claude/settings.json` + `settings.local.json` | rule + lệnh + hook |
 | **Codex** | `AGENTS.md` · `~/.codex/prompts/*` · `.codex/hooks.json` | rule + lệnh + hook |
 | **Antigravity** | `AGENTS.md` · `.agent/workflows/*` (+ `.agent/hooks.json` cho bản CLI) | rule + lệnh + (soft-hook) |
 
@@ -24,11 +24,15 @@ Triết lý: (1) AI tự bám convention ngay từ đầu (đỡ review sửa nh
 
 **Bước chung:** mở đúng project (ở git root, nơi có `CLAUDE.md`/`AGENTS.md`) + **phiên mới** → cứ ra yêu cầu bình thường, AI đã tự nạp convention.
 
-| Nền tảng | Rule tự nạp | Lệnh tắt | Auto format/test sau khi sửa |
+| Tính năng | Claude | Antigravity IDE | Codex ext |
 |---|---|---|---|
-| **Claude Code** | `CLAUDE.md` (tự) | `/review` `/api-docs` `/scaffold-test` `/refactor` | ✅ Hook thật qua `make ai-*` (PHP 8.2 trong Docker) |
-| **Codex** | `AGENTS.md` (tự) | gõ `/` → chọn `review`/`refactor`/`api-docs`/`scaffold-test` (hoặc `/prompts:review`…) | ✅ Hook thật (sau khi **Trust** — xem mục C) |
-| **Antigravity** | `AGENTS.md` (tự) | gõ `/` → `review`/`refactor`/`api-docs`/`scaffold-test` (workflows) | ⚙️ Soft-hook: AI **tự chạy** `pint` theo lệnh trong `AGENTS.md` |
+| Rule tự nạp | CLAUDE.md ✅ | AGENTS.md ✅ | AGENTS.md ✅ |
+| Slash/workflow | ✅ commands | ✅ workflows | ⚠️ prompts chập chờn → dựa AGENTS.md |
+| Lint/format + test | ✅ hook thật | ❌ hook (dùng soft-run/AGENTS.md) | ⚠️ hook sau Trust (verify) |
+| PreToolUse guard | ✅ | ❌ (soft trong AGENTS.md) | ⚠️ sau Trust (verify) |
+| find-reuse | ✅ skill+cmd | ✅ workflow | ⚠️ AGENTS.md (+prompt nếu chạy) |
+
++ caveat: Antigravity IDE không chạy hook → enforcement = AGENTS.md tự-tuân; Codex extension cần **Trust** + verify `/hooks`; `~/.codex/prompts` có thể không hiện trong extension.
 
 Ý nghĩa lệnh: `/review` (soát diff theo checklist) · `/refactor` (review/refactor giữ behavior, mức 🔴🟡🟢) · `/api-docs` (sinh docs FE `api-docs/<Module>/<Endpoint>.md`) · `/scaffold-test` (sinh unit test Mockery).
 Với AI khác chưa có lệnh: dán thẳng `docs/ai/prompts/<x>.md` + nội dung cần xử lý.
@@ -46,21 +50,21 @@ cd claude-hrm-tooling
 `install.sh` copy vào project: `CLAUDE.md`, `AGENTS.md`, `docs/ai/`, `.claude/{commands,hooks}`, `.agent/{workflows,hooks.json}`, `.codex/hooks.json`, `api-docs/`; và copy `~/.codex/prompts/` nếu máy có `~/.codex`.
 
 ### 2) Một-lần cho từng nền tảng
-- **Claude Code:** mở `hooks-snippet.json` (trong repo tooling) → dán khối `"hooks"` vào `<project>/.claude/settings.local.json` (chưa có thì tạo mới; có rồi thì chèn thêm key `hooks`). → khởi động lại Claude Code.
-- **Codex:** mở project bằng Codex → nó phát hiện `.codex/hooks.json` và hỏi *"N hooks need review"* → bấm **Trust all** (hoặc Review hooks để xem trước — hook gọi `make ai-*` trong Docker nếu project có Makefile mới). → khởi động lại phiên. (Prompts đã nằm ở `~/.codex/prompts`.)
+- **Claude Code:** Script \`install.sh\` đã tự động merge hook vào \`.claude/settings.local.json\`. Bạn chỉ cần khởi động lại Claude Code.
+- **Codex:** mở project bằng Codex → nó phát hiện `.codex/hooks.json` và hỏi *"N hooks need review"* → bấm **Trust all** (hoặc Review hooks để xem trước — hook gọi `make -f Makefile.ai ai-*` trong Docker). → khởi động lại phiên. (Prompts đã nằm ở `~/.codex/prompts`.)
 - **Antigravity:** chỉ cần mở project (tự đọc `AGENTS.md` + `.agent/workflows/`). → khởi động lại phiên. *(Bản IDE không chạy `.agent/hooks.json` → format dựa vào soft-hook trong `AGENTS.md`; bản CLI thì hook chạy thật.)*
 
 ### 3) Verify nhanh
 - Hỏi (không đính kèm file): *"feature mẫu chuẩn của dự án là gì?"* → phải trả lời `SaveZaloAccountStaff`.
-- Gõ `/` xem có `review`/`refactor`/`api-docs`/`scaffold-test` không.
+- Gõ `/` xem có `review`/`refactor`/`api-docs`/`scaffold-test`/`scaffold-feature`/`commit-message`/`find-reuse` không.
 - (Claude/Codex) sửa thử 1 file `.php` format xấu → kiểm tra có tự `pint` không.
 
 ---
 
 ## D. Môi trường (RẤT QUAN TRỌNG — local ≠ Docker)
-- Chạy thật trong **Docker container `hrm-api` (PHP 8.2.31)**. Host PHP mới hơn không dùng làm chuẩn verify.
-- Không chạy trực tiếp `php`, `composer`, `php artisan`, `vendor/bin/phpunit`, `vendor/bin/pint` trên host khi kiểm tra code.
-- Lệnh chuẩn cho AI: `make ai-lint FILE=source/...`, `make ai-pint FILE=source/...`, `make ai-check FILE=source/...`, `make ai-test TEST=tests/Unit/XTest.php`, `make ai-artisan CMD="route:list"`.
+- Chạy thật trong **Docker container `hrm-api` (PHP 8.2.31)** thông qua script `Makefile.ai`. Host PHP mới hơn không được dùng làm chuẩn verify. Tooling đã có PreToolUse Guard chặn AI tự động verify trên host.
+- Không chạy trực tiếp `php`, `composer`, `php artisan`, `vendor/bin/phpunit`, `vendor/bin/pint` trên host khi kiểm tra code. Nếu Docker down, hook sẽ fallback xuống host và in log **CẢNH BÁO BÁO XANH GIẢ**.
+- Lệnh chuẩn cho AI: `make -f Makefile.ai ai-lint FILE=source/...`, `make -f Makefile.ai ai-pint FILE=source/...`, `make -f Makefile.ai ai-check FILE=source/...`, `make -f Makefile.ai ai-test TEST=tests/Unit/XTest.php`, `make -f Makefile.ai ai-artisan CMD="route:list"`.
 - Cài deps trong container: `make shell` → `composer install` → `make copy-vendor` (hoặc dùng target composer sẵn có trong `Makefile`).
 
 ---
@@ -77,8 +81,9 @@ git pull && ./install.sh /duong-dan/toi/hrm-api
 
 ---
 
-## F. Bảo mật
-- KHÔNG commit `.claude/settings.local.json` (đã gitignore — chứa path tuyệt đối + có thể chứa allowlist nhạy cảm).
+## F. Bảo mật & Settings
+- **`settings.json` vs `settings.local.json`**: Các rule chung cho project (allowlist các thư mục core) được lưu trong `.claude/settings.json` để chia sẻ giữa team. File `.claude/settings.local.json` chỉ chứa đường dẫn cá nhân (absolute) và bị gitignore.
+- KHÔNG commit `.claude/settings.local.json`. File này có thể chứa PAT do rò rỉ session. Script `install.sh` đã có guard báo động nếu phát hiện PAT trong file này.
 - KHÔNG dán Personal Access Token vào chat/commit. Lỡ lộ → https://github.com/settings/tokens **revoke ngay** + tạo token mới. Repo team có `gitleaks` pre-commit chặn rò rỉ — giữ nguyên.
 
 ---
@@ -91,7 +96,7 @@ git pull && ./install.sh /duong-dan/toi/hrm-api
 | Refactor giữ behavior | `/refactor` |
 | Sinh docs FE | `/api-docs` |
 | Sinh test | `/scaffold-test <path>` |
-| Chạy test | `make ai-test TEST=tests/Unit/XTest.php` |
-| Format/lint | `make ai-check FILE=source/path/to/File.php` |
-| Cài máy mới | `./install.sh /path/to/hrm-api` + (Claude) dán `hooks-snippet.json` + (Codex) Trust all |
+| Chạy test | `make -f Makefile.ai ai-test TEST=tests/Unit/XTest.php` |
+| Format/lint | `make -f Makefile.ai ai-check FILE=source/path/to/File.php` |
+| Cài máy mới | `./install.sh /path/to/hrm-api` + (Claude) chỉ cần restart; (Codex) Trust |
 | Đồng bộ thay đổi | `./sync-from-project.sh` → commit → push → (máy kia) pull + install |

@@ -1,14 +1,26 @@
 {
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && bash \"$ROOT/.claude/hooks/block-host-tools.sh\"",
+            "statusMessage": "block-host-tools guard"
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
-        "matcher": "apply_patch|Edit|Write",
+        "matcher": "Edit|MultiEdit|Write|apply_patch",
         "hooks": [
           {
             "type": "command",
             "command": "ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && bash \"$ROOT/.claude/hooks/format-dirty.sh\"",
             "timeout": 30,
-            "statusMessage": "make ai-pint + ai-lint (dirty PHP files)"
+            "statusMessage": "make -f Makefile.ai ai-pint + ai-lint (dirty PHP files)"
           }
         ]
       }
@@ -21,6 +33,17 @@
             "command": "ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && bash \"$ROOT/.claude/hooks/run-related-tests.sh\"",
             "timeout": 180,
             "statusMessage": "phpunit (related tests)"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && bash \"$ROOT/.claude/hooks/session-start.sh\"",
+            "statusMessage": "session-start preflight check"
           }
         ]
       }

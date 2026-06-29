@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Edit(source/src/**)",
+      "Edit(source/app/**)",
+      "Edit(source/routes/**)",
+      "Edit(source/tests/**)",
+      "Edit(source/config/**)",
+      "Edit(source/database/**)",
+      "Bash(docker compose exec -T hrm-api *)",
+      "Bash(make -f Makefile.ai *)"
+    ]
+  }
+}

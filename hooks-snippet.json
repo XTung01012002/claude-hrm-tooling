@@ -1,17 +1,48 @@
 {
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          { 
+            "type": "command", 
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { 
+            "type": "command", 
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/block-host-tools.sh\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
-        "matcher": "Edit|MultiEdit|Write",
+        "matcher": "Edit|MultiEdit|Write|apply_patch",
         "hooks": [
-          { "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/php-lint.sh\"" }
+          { 
+            "type": "command", 
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/php-lint.sh\"",
+            "timeout": 60
+          }
         ]
       }
     ],
     "Stop": [
       {
         "hooks": [
-          { "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/run-related-tests.sh\"" }
+          { 
+            "type": "command", 
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/run-related-tests.sh\"",
+            "timeout": 180
+          }
         ]
       }
     ]
