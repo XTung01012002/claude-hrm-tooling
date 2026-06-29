@@ -7,6 +7,10 @@
 set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
+# Cần jq để parse payload hook — thiếu thì báo & bỏ qua (KHÔNG im lặng no-op).
+command -v jq >/dev/null 2>&1 || { echo "[php-lint hook] jq không có — bỏ qua hook (cài jq để bật lint/format)" >&2; exit 0; }
+
 INPUT="$(cat)"
 
 # Lấy đường dẫn file với fallback nhiều key (các tool/biến thể đặt tên khác nhau)

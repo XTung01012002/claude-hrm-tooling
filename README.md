@@ -1,36 +1,42 @@
 # claude-hrm-tooling
 
-Bộ AI tooling cá nhân cho dự án **HRM API**, tách khỏi repo code của team. Đồng bộ giữa nhiều máy (vd máy nhà ↔ máy công ty) qua **remote private của riêng bạn** — không commit gì vào repo team.
+Bộ AI tooling cá nhân cho **HRM API**, tách khỏi repo code team. Đồng bộ nhiều máy qua remote private của bạn, cài vào project bằng `install.sh`. Hỗ trợ **Claude Code · Codex · Antigravity** dùng chung 1 nguồn chân lý.
 
-## Nội dung (`payload/` — mirror đúng cấu trúc thư mục project)
-- `CLAUDE.md` — tóm tắt, trỏ về `docs/ai/PROJECT-CONVENTIONS.md`.
-- `docs/ai/PROJECT-CONVENTIONS.md` + `docs/ai/prompts/*.md` — nguồn chân lý trung lập (dùng cho mọi AI).
-- `.claude/commands/*.md` — slash command `/review`, `/api-docs`, `/scaffold-test`.
-- `.claude/hooks/*.sh` — hook lint/format + chạy test liên quan.
-- `api-docs/**` — docs FE (HRM-specific; có thể regenerate bằng `/api-docs`).
+> **Hướng dẫn dùng & cài chi tiết: [`HUONG-DAN-SU-DUNG.md`](HUONG-DAN-SU-DUNG.md)** — đây là nguồn chuẩn; README chỉ tóm tắt.
 
-> Phần tooling tái dùng = `CLAUDE.md` + `docs/ai/` + `.claude/`. `api-docs/` là nội dung riêng của HRM.
-> `.claude/settings.local.json` **không** nằm ở đây (bị gitignore + chứa path tuyệt đối theo máy). Việc đăng ký hook làm thủ công qua `hooks-snippet.json`.
+## Nội dung (`payload/` — mirror cấu trúc project; `install.sh` copy hết)
+- `CLAUDE.md` (Claude) · `AGENTS.md` (Antigravity/Codex/Cursor) — pointer rule, trỏ về `docs/ai/PROJECT-CONVENTIONS.md`.
+- `docs/ai/PROJECT-CONVENTIONS.md` + `docs/ai/prompts/*.md` — nguồn chân lý trung lập (review · generate-api-docs · generate-test · refactor).
+- `.claude/commands/*.md` + `.claude/hooks/*.sh` — lệnh `/review` `/api-docs` `/scaffold-test` `/refactor` + hook lint/format/test (Claude).
+- `.agent/workflows/*.md` + `.agent/hooks.json` — workflows + hooks (Antigravity).
+- `.codex/hooks.json` — hooks (Codex); prompts cài vào `~/.codex/prompts` qua `install.sh`.
+- `api-docs/**` — docs FE (HRM-specific).
 
-## Lần đầu: đẩy lên remote private của bạn
+## Đẩy lên remote private (lần đầu)
 ```bash
-cd /Users/macbook/Desktop/claude-hrm-tooling
-# tạo 1 repo PRIVATE trên GitHub/GitLab cá nhân (vd: tungtx/claude-hrm-tooling), rồi:
-git remote add origin git@github.com:<your-username>/claude-hrm-tooling.git
+cd /duong-dan/toi/claude-hrm-tooling
+git remote add origin https://github.com/<your-username>/claude-hrm-tooling.git
 git push -u origin main
 ```
 
-## Trên máy công ty: cài vào project
+## Cài trên máy mới
 ```bash
-git clone git@github.com:<your-username>/claude-hrm-tooling.git
+git clone https://github.com/<your-username>/claude-hrm-tooling.git
 cd claude-hrm-tooling
-./install.sh /duong-dan/toi/hrm-api      # copy file vào đúng chỗ trong project
+./install.sh /duong-dan/toi/hrm-api
 ```
-Sau đó merge khối `hooks` trong [`hooks-snippet.json`](hooks-snippet.json) vào `<project>/.claude/settings.local.json` của máy đó, rồi khởi động lại Claude Code.
+Một-lần mỗi tool (chi tiết ở [HUONG-DAN-SU-DUNG.md](HUONG-DAN-SU-DUNG.md) mục C):
+- **Claude Code**: dán khối `hooks` trong [`hooks-snippet.json`](hooks-snippet.json) vào `<project>/.claude/settings.local.json` → restart.
+- **Codex**: mở project → hiện *"hooks need review"* → **Review hooks** rồi trust → restart.
+- **Antigravity**: chỉ mở project (tự đọc `AGENTS.md` + `.agent/workflows/`) → restart.
 
-## Khi cập nhật tooling (máy gốc)
+## Cập nhật tooling về sau
 ```bash
-./sync-from-project.sh /duong-dan/toi/hrm-api   # copy file mới nhất từ project về payload/
+./sync-from-project.sh /duong-dan/toi/hrm-api   # project → payload/
 git add -A && git commit -m "update tooling" && git push
+# máy khác: git pull && ./install.sh /duong-dan/toi/hrm-api
 ```
-Máy công ty: `git pull && ./install.sh /duong-dan/toi/hrm-api`.
+
+> - `install.sh` tự thêm các file AI (`CLAUDE.md`, `AGENTS.md`, `.claude/`, `.agent/`, `.codex/`, `docs/ai/`) vào `<project>/.git/info/exclude` → **không lỡ commit vào repo team** (`api-docs/` không bị exclude vì có thể thuộc project).
+> - `.claude/settings.local.json` không nằm trong repo này (gitignore + chứa path theo máy) → đăng ký hook qua `hooks-snippet.json`.
+> - `.claude/hooks/*.sh` là **code tự chạy** — nên liếc lại sau mỗi `git pull`.

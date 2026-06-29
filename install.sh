@@ -33,6 +33,16 @@ if [ -d "$HOME/.codex" ]; then
     && echo "  + ~/.codex/prompts/ (Codex slash commands: /prompts:review, /prompts:refactor, ...)"
 fi
 
+# Giu file AI ngoai git cua repo team (per-clone, khong dung .gitignore tracked).
+# api-docs/ KHONG exclude vi co the thuoc project.
+EXCLUDE="$TARGET/.git/info/exclude"
+if [ -f "$EXCLUDE" ]; then
+  for p in CLAUDE.md AGENTS.md .claude/ .agent/ .codex/ docs/ai/; do
+    grep -qxF "$p" "$EXCLUDE" 2>/dev/null || printf '%s\n' "$p" >> "$EXCLUDE"
+  done
+  echo "  + da them file AI vao $EXCLUDE (giu ngoai git team)"
+fi
+
 echo
 echo "Da cai: Claude (.claude/commands+hooks), Antigravity (.agent/workflows), Codex (~/.codex/prompts neu co)."
 echo "Xong phan file."

@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/format-dirty.sh\"",
+            "command": "ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && bash \"$ROOT/.claude/hooks/format-dirty.sh\"",
             "timeout": 30,
             "statusMessage": "pint + php -l (dirty files)"
           }
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$(git rev-parse --show-toplevel)/.claude/hooks/run-related-tests.sh\"",
+            "command": "ROOT=$(git rev-parse --show-toplevel 2>/dev/null) && bash \"$ROOT/.claude/hooks/run-related-tests.sh\"",
             "timeout": 180,
             "statusMessage": "phpunit (related tests)"
           }
