@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.0] - 2026-06-30
+
+### Added
+- Lệnh `/task-breakdown` (bẻ việc / bóc task / estimate) cho cả **Claude Code, Codex và Antigravity IDE**: nguồn chân lý `docs/ai/prompts/task-breakdown.md`, wrapper `.claude/commands/task-breakdown.md` + `.agent/workflows/task-breakdown.md` (Codex nhận qua `~/.codex/prompts` khi chạy `install.sh`).
+- Rule estimate: chia task theo Technical Boundary, ma trận Size×Effort→Point (trần **2 Point/task**, bắt buộc tách nếu vượt), reuse-first và chống cộng trùng point — gồm cả chống cộng trùng across nhiều file trong cùng một phiên bóc gộp (§6.5).
+
 ## [1.2.0] - 2026-06-29
 
 ### Added
