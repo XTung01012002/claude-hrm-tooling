@@ -11,7 +11,7 @@ Triết lý: (1) AI tự bám convention ngay từ đầu (đỡ review sửa nh
 | Thành phần | Đường dẫn | Vai trò |
 |---|---|---|
 | **Nguồn chân lý** | `docs/ai/PROJECT-CONVENTIONS.md` | Toàn bộ rule (§0 cấm bịa, §1 reuse+DRY, §2 layering, §4 ORM, §8 multi-tenancy, §9 transaction/webhook, §10 list, §11 giữ behavior). Dùng cho MỌI AI. |
-| **Prompt tái dùng** | `docs/ai/prompts/{review,generate-api-docs,generate-test,refactor,generate-feature,commit-message,find-reuse}.md` | Logic cho review / docs FE / test / refactor / feature / commit / reuse |
+| **Prompt tái dùng** | `docs/ai/prompts/{review,generate-api-docs,generate-test,refactor,generate-feature,commit-message,find-reuse,task-breakdown}.md` | Logic cho review / docs FE / test / refactor / feature / commit / reuse / bẻ việc-estimate |
 | **Claude Code** | `CLAUDE.md` · `.claude/commands/*` · `.claude/hooks/*` + `.claude/settings.json` + `settings.local.json` | rule + lệnh + hook |
 | **Codex** | `AGENTS.md` · `~/.codex/prompts/*` · `.codex/hooks.json` | rule + lệnh + hook |
 | **Antigravity** | `AGENTS.md` · `.agent/workflows/*` (+ `.agent/hooks.json` cho bản CLI) | rule + lệnh + (soft-hook) |
@@ -34,7 +34,7 @@ Triết lý: (1) AI tự bám convention ngay từ đầu (đỡ review sửa nh
 
 + caveat: Antigravity IDE không chạy hook → enforcement = AGENTS.md tự-tuân; Codex extension cần **Trust** + verify `/hooks`; `~/.codex/prompts` có thể không hiện trong extension.
 
-Ý nghĩa lệnh: `/review` (soát diff theo checklist) · `/refactor` (review/refactor giữ behavior, mức 🔴🟡🟢) · `/api-docs` (sinh docs FE `api-docs/<Module>/<Endpoint>.md`) · `/scaffold-test` (sinh unit test Mockery).
+Ý nghĩa lệnh: `/review` (soát diff theo checklist) · `/refactor` (review/refactor giữ behavior, mức 🔴🟡🟢) · `/api-docs` (sinh docs FE `api-docs/<Module>/<Endpoint>.md`) · `/scaffold-test` (sinh unit test Mockery) · `/task-breakdown` (bẻ việc/bóc task/estimate theo Size×Effort→Point, mỗi task ≤ 2 Point).
 Với AI khác chưa có lệnh: dán thẳng `docs/ai/prompts/<x>.md` + nội dung cần xử lý.
 
 ---
@@ -56,7 +56,7 @@ cd claude-hrm-tooling
 
 ### 3) Verify nhanh
 - Hỏi (không đính kèm file): *"feature mẫu chuẩn của dự án là gì?"* → phải trả lời `SaveZaloAccountStaff`.
-- Gõ `/` xem có `review`/`refactor`/`api-docs`/`scaffold-test`/`scaffold-feature`/`commit-message`/`find-reuse` không.
+- Gõ `/` xem có `review`/`refactor`/`api-docs`/`scaffold-test`/`scaffold-feature`/`commit-message`/`find-reuse`/`task-breakdown` không.
 - (Claude/Codex) sửa thử 1 file `.php` format xấu → kiểm tra có tự `pint` không.
 
 ---
@@ -94,6 +94,7 @@ git pull && ./install.sh /duong-dan/toi/hrm-api
 | AI hiểu convention | Tự nạp (`CLAUDE.md`/`AGENTS.md`); AI lạ: dán `docs/ai/PROJECT-CONVENTIONS.md` |
 | Review code | `/review` |
 | Refactor giữ behavior | `/refactor` |
+| Bẻ việc / bóc task / estimate | `/task-breakdown` |
 | Sinh docs FE | `/api-docs` |
 | Sinh test | `/scaffold-test <path>` |
 | Chạy test | `make -f Makefile.ai ai-test TEST=tests/Unit/XTest.php` |

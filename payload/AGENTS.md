@@ -29,4 +29,5 @@
 ## Prompt tái dùng (Backed by `docs/ai/prompts/*.md`)
 - Review: `docs/ai/prompts/review.md` · Review/Refactor: `docs/ai/prompts/refactor.md` · Sinh docs FE: `docs/ai/prompts/generate-api-docs.md` · Sinh test: `docs/ai/prompts/generate-test.md`
 - Sinh feature (`/scaffold-feature`): `docs/ai/prompts/generate-feature.md` · Tự sinh git commit (`/commit-message`): `docs/ai/prompts/commit-message.md` · Tìm reuse (`/find-reuse`): `docs/ai/prompts/find-reuse.md`.
+- Bẻ việc / bóc task / estimate (`/task-breakdown`): `docs/ai/prompts/task-breakdown.md` — chia theo Technical Boundary, ma trận Size×Effort→Point (trần 2 Point/task), reuse-first, không cộng trùng.
 - Docs FE viết vào `api-docs/<Module>/<Endpoint>.md` (contract-only) — KHÁC `docs/` (logic nội bộ BE).

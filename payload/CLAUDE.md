@@ -28,3 +28,4 @@ File này chỉ tóm tắt; chi tiết + lý do nằm ở đó.
 - `/commit-message` → sinh nội dung git commit (`docs/ai/prompts/commit-message.md`).
 - `/refactor` → review/refactor code giữ behavior, có mức độ 🔴🟡🟢 (`docs/ai/prompts/refactor.md`).
 - `/find-reuse` → tìm logic/interface có thể tái sử dụng trước khi tạo mới (`docs/ai/prompts/find-reuse.md`).
+- `/task-breakdown` → bẻ việc / bóc task / estimate theo Size×Effort→Point, mỗi task ≤ 2 Point (`docs/ai/prompts/task-breakdown.md`).
