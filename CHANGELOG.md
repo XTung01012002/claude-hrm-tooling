@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.0] - 2026-07-01
+
+### Fixed
+- **Lệnh sai trong source of truth**: sửa 8 chỗ `make ai-*` → `make -f Makefile.ai ai-*` trong `PROJECT-CONVENTIONS.md` §7, `generate-test.md`, `generate-api-docs.md`. Trước đó pointer files (`CLAUDE.md`/`AGENTS.md`) đã đúng nhưng nguồn chân lý lại sai.
+- **PreToolUse guard false-positive + bypass**: viết lại — chỉ match ở vị trí command (sau `; & | (` hoặc đầu dòng), bắt absolute path (`/usr/bin/php`), bắt subshell (`bash -lc 'php -v'`). `rg php source/` / `echo php` / `git grep composer` không còn bị chặn nhầm.
+- **Host fallback mâu thuẫn convention**: bỏ fallback sang host PHP ở `php-lint.sh`, `format-dirty.sh`, `run-related-tests.sh`. Docker down → hook skip rõ ràng với message hướng dẫn chạy tay. Cập nhật cảnh báo `session-start.sh` và `HUONG-DAN-SU-DUNG.md` cho khớp.
+- **format-dirty.sh sửa file ngoài phạm vi**: ưu tiên file từ hook payload (thử nhiều field names), fallback collect unstaged + untracked mới tạo (bỏ staged). Sửa bug absolute path bị ghép sai (`$REPO_ROOT/$abs` → normalize).
+- **install.sh `jq` merge không idempotent**: đổi sang `unique_by(tojson)` — chạy installer nhiều lần không duplicate hooks.
+- **install.sh false-success + exit code**: merge fail → in lỗi + exit 1 (trước đây exit 0 và in "Cài đặt thành công").
+- **sync-from-project.sh**: thêm 3 path (`Makefile.ai`, `.claude/settings.json`, `.claude/skills`), lọc `*.bak` sau khi copy.
+- **HUONG-DAN-SU-DUNG.md**: bỏ mention `api-docs/`, cập nhật danh sách files install.sh copy, sửa mô tả Docker-down behavior.
+- **Makefile.ai**: thêm `.PHONY`, thêm `--do-not-cache-result` cho `ai-test` (tránh permission denied trên `.phpunit.result.cache`).
+- **php-lint.sh**: sửa comment "fail rõ ràng" → "skip rõ ràng" cho đúng behavior (exit 0 + cảnh báo).
+- **.gitignore**: thêm `*.bak` tránh backup files bị git track.
+
+### Known Issues
+- Codex global prompts (`~/.codex/prompts/`) dùng cơ chế deprecated. Cần migrate sang `.agents/skills/` trong phiên bản sau.
+
 ## [1.3.0] - 2026-06-30
 
 ### Added

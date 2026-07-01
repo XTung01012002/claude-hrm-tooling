@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
 # Hook format/lint TOOL-AGNOSTIC (Codex / Antigravity / Claude đều dùng được).
-# KHÔNG phụ thuộc payload hook (Codex apply_patch không có field file_path sạch) —
-# thay vào đó format + lint các file PHP đang "dirty" theo git.
-#   - php -l từng file .php đã đổi (chặn nếu sai cú pháp → exit 2)
-#   - vendor/bin/pint --dirty (auto-format file chưa commit)
-# Tự định vị repo qua vị trí script nên chạy được từ mọi cwd.
+# v1.4.1:
+#   - Ưu tiên file path từ payload (thử nhiều field names).
+#   - Fallback: unstaged + untracked (để bắt file mới tạo), nhưng BỎ staged.
+#   - Sửa path normalization: absolute path không bị ghép sai.
+#   - Bỏ host fallback — Docker down thì skip rõ ràng.
 set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SRC="$REPO_ROOT/source"
-cat >/dev/null 2>&1 || true   # drain stdin nếu hook có truyền (không dùng)
+
+# Đọc stdin (payload hook)
+INPUT="$(cat 2>/dev/null || true)"
 
 [ -d "$SRC" ] || exit 0
 
@@ -21,58 +23,85 @@ container_up() {
   ( cd "$REPO_ROOT/docker/local" 2>/dev/null && docker compose exec -T hrm-api true >/dev/null 2>&1 )
 }
 
-collect_changed() {
-  {
-    git -C "$REPO_ROOT" diff --name-only --diff-filter=ACM
-    git -C "$REPO_ROOT" diff --name-only --diff-filter=ACM --cached
-    git -C "$REPO_ROOT" ls-files --others --exclude-standard
-  } 2>/dev/null | sort -u
-}
-
-USE_AI_MAKE=0
-if has_make_target ai-lint && has_make_target ai-pint && container_up; then
-  USE_AI_MAKE=1
+# Kiểm tra Docker — KHÔNG fallback sang host
+if ! has_make_target; then
+  echo "[format-dirty] ⚠️ Makefile.ai không tồn tại — bỏ qua lint/format." >&2
+  exit 0
 fi
 
-cd "$SRC" || exit 0
+if ! container_up; then
+  echo "[format-dirty] ⚠️ Container hrm-api không chạy — bỏ qua lint/format. Bật Docker rồi chạy tay." >&2
+  exit 0
+fi
 
-# Lint các file .php đã đổi (unstaged + staged + untracked)
+# --- Normalize path: absolute → relative to REPO_ROOT ---
+normalize_to_rel() {
+  local f="$1"
+  case "$f" in
+    "$REPO_ROOT"/*) printf '%s' "${f#$REPO_ROOT/}" ;;
+    /*) return ;;  # absolute ngoài repo — reject (không in gì)
+    *) printf '%s' "$f" ;;
+  esac
+}
+
+file_exists() {
+  local f="$1"
+  case "$f" in
+    /*) return 1 ;;  # reject absolute path — phải normalize trước
+    *)  [ -f "$REPO_ROOT/$f" ] ;;
+  esac
+}
+
+# --- Thu thập file cần xử lý ---
+
+# Ưu tiên 1: lấy file từ payload hook (thử nhiều field names khác nhau)
+TARGET_FILE=""
+if command -v jq >/dev/null 2>&1 && [ -n "$INPUT" ]; then
+  TARGET_FILE="$(printf '%s' "$INPUT" | jq -r '
+    .tool_input.file_path //
+    .tool_input.target_file //
+    .tool_input.targetFile //
+    .tool_input.path //
+    empty
+  ' 2>/dev/null)"
+  # Normalize nếu là absolute path
+  if [ -n "$TARGET_FILE" ]; then
+    TARGET_FILE="$(normalize_to_rel "$TARGET_FILE")"
+  fi
+fi
+
+collect_lint_files() {
+  if [ -n "$TARGET_FILE" ]; then
+    printf '%s\n' "$TARGET_FILE"
+  else
+    # Fallback: unstaged + untracked (BỎ staged)
+    {
+      git -C "$REPO_ROOT" diff --name-only --diff-filter=ACM
+      git -C "$REPO_ROOT" ls-files --others --exclude-standard
+    } 2>/dev/null | sort -u
+  fi
+}
+
+# Lint các file .php
 fail=0
-host_warned=0
 while IFS= read -r f; do
   [ -z "$f" ] && continue
   case "$f" in *.php) ;; *) continue ;; esac
-  rel="${f#source/}"
-  [ -f "$REPO_ROOT/$f" ] || continue
-  if [ "$USE_AI_MAKE" = "1" ]; then
-    if ! OUT="$(make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-lint FILE="$f" 2>&1)"; then
-      echo "[format-dirty] make ai-lint FAILED: $f" >&2
-      printf '%s\n' "$OUT" >&2
-      fail=1
-    fi
-  else
-    if [ "$host_warned" = "0" ]; then
-      echo "[format-dirty] ⚠️ Makefile.ai/ai-* không có hoặc container down → verify trên HOST php, KHÔNG phải container 8.2.31 — kết quả KHÔNG đáng tin." >&2
-      host_warned=1
-    fi
-    if ! php -l "$rel" >/dev/null 2>&1; then
-      echo "[format-dirty] php -l FAILED: source/$rel" >&2
-      php -l "$rel" >&2
-      fail=1
-    fi
+  file_exists "$f" || continue
+  if ! OUT="$(make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-lint FILE="$f" 2>&1)"; then
+    echo "[format-dirty] make ai-lint FAILED: $f" >&2
+    printf '%s\n' "$OUT" >&2
+    fail=1
   fi
-done < <(collect_changed)
+done < <(collect_lint_files)
 
-# Auto-format file dirty (không chặn)
-if [ "$USE_AI_MAKE" = "1" ]; then
-  while IFS= read -r f; do
-    [ -z "$f" ] && continue
-    case "$f" in *.php) ;; *) continue ;; esac
-    [ -f "$REPO_ROOT/$f" ] || continue
-    make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-pint FILE="$f" >/dev/null 2>&1 || true
-  done < <(collect_changed)
-else
-  [ -x vendor/bin/pint ] && vendor/bin/pint --dirty >/dev/null 2>&1 || true
+# Auto-format: CHỈ khi biết chính xác file AI sửa (có TARGET_FILE)
+# Không có TARGET_FILE → KHÔNG format để tránh sửa file ngoài phạm vi AI
+if [ -n "$TARGET_FILE" ]; then
+  case "$TARGET_FILE" in *.php)
+    file_exists "$TARGET_FILE" && \
+      make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-pint FILE="$TARGET_FILE" >/dev/null 2>&1 || true
+  ;; esac
 fi
 
 [ "$fail" = "1" ] && exit 2

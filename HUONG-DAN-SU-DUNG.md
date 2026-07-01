@@ -47,7 +47,7 @@ git clone https://github.com/XTung01012002/claude-hrm-tooling.git
 cd claude-hrm-tooling
 ./install.sh /duong-dan/toi/hrm-api
 ```
-`install.sh` copy vào project: `CLAUDE.md`, `AGENTS.md`, `docs/ai/`, `.claude/{commands,hooks}`, `.agent/{workflows,hooks.json}`, `.codex/hooks.json`, `api-docs/`; và copy `~/.codex/prompts/` nếu máy có `~/.codex`.
+`install.sh` copy vào project: `CLAUDE.md`, `AGENTS.md`, `Makefile.ai`, `docs/ai/`, `.claude/{commands,hooks,settings.json,skills}`, `.agent/{workflows,hooks.json}`, `.codex/hooks.json`; và copy `~/.codex/prompts/` nếu máy có `~/.codex`.
 
 ### 2) Một-lần cho từng nền tảng
 - **Claude Code:** Script \`install.sh\` đã tự động merge hook vào \`.claude/settings.local.json\`. Bạn chỉ cần khởi động lại Claude Code.
@@ -63,7 +63,7 @@ cd claude-hrm-tooling
 
 ## D. Môi trường (RẤT QUAN TRỌNG — local ≠ Docker)
 - Chạy thật trong **Docker container `hrm-api` (PHP 8.2.31)** thông qua script `Makefile.ai`. Host PHP mới hơn không được dùng làm chuẩn verify. Tooling đã có PreToolUse Guard chặn AI tự động verify trên host.
-- Không chạy trực tiếp `php`, `composer`, `php artisan`, `vendor/bin/phpunit`, `vendor/bin/pint` trên host khi kiểm tra code. Nếu Docker down, hook sẽ fallback xuống host và in log **CẢNH BÁO BÁO XANH GIẢ**.
+- Không chạy trực tiếp `php`, `composer`, `php artisan`, `vendor/bin/phpunit`, `vendor/bin/pint` trên host khi kiểm tra code. Nếu Docker down, hooks sẽ **bỏ qua lint/format/test** với cảnh báo — KHÔNG fallback sang host PHP.
 - Lệnh chuẩn cho AI: `make -f Makefile.ai ai-lint FILE=source/...`, `make -f Makefile.ai ai-pint FILE=source/...`, `make -f Makefile.ai ai-check FILE=source/...`, `make -f Makefile.ai ai-test TEST=tests/Unit/XTest.php`, `make -f Makefile.ai ai-artisan CMD="route:list"`.
 - Cài deps trong container: `make shell` → `composer install` → `make copy-vendor` (hoặc dùng target composer sẵn có trong `Makefile`).
 

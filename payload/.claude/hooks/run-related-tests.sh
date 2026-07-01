@@ -3,10 +3,8 @@
 # Không có paired test -> skip êm (KHÔNG chạy full suite) để hook nhẹ, không làm AI khựng.
 #
 # Format KHÔNG check ở đây: PostToolUse (php-lint.sh) đã auto-format từng file AI sửa rồi.
-# (Nếu check pint --dirty --test ở Stop sẽ fail vì file dirty CÓ SẴN từ trước, không phải do AI → khựng mỗi lượt.)
 #
-# Runner: vendor/bin/phpunit (chạy được local trên PHP 8.5 cho unit test thuần).
-# Feature test / php artisan test cần boot app -> chạy trong Docker, không nằm trong hook này.
+# v1.4: bỏ host fallback — Docker down thì skip rõ ràng.
 # Exit 0 = OK; exit 2 = có lỗi, báo ngược cho AI sửa.
 set -uo pipefail
 
@@ -74,24 +72,18 @@ tests_to_run="$(printf '%s' "$tests_to_run" | sed 's/^ *//')"
 # Không có paired test -> skip êm
 [ -z "$tests_to_run" ] && exit 0
 
-if has_make_target ai-test && container_up; then
-  if ! make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-test TEST="$tests_to_run"; then
-    echo "[run-related-tests hook] Unit test FAILED: ${tests_to_run}" >&2
-    exit 2
-  fi
+# Kiểm tra Docker — KHÔNG fallback sang host
+if ! has_make_target; then
+  echo "[run-related-tests hook] ⚠️ Makefile.ai không tồn tại — bỏ qua test. Chạy tay: make -f Makefile.ai ai-test TEST=$tests_to_run" >&2
   exit 0
 fi
 
-echo "[run-related-tests hook] ⚠️ Makefile.ai/ai-* không có hoặc container down → verify trên HOST php, KHÔNG phải container 8.2.31 — kết quả KHÔNG đáng tin." >&2
-
-[ -x vendor/bin/phpunit ] || {
-  echo "[run-related-tests hook] vendor/bin/phpunit không có — bỏ qua related tests" >&2
+if ! container_up; then
+  echo "[run-related-tests hook] ⚠️ Container hrm-api không chạy — bỏ qua test. Bật Docker rồi chạy tay: make -f Makefile.ai ai-test TEST=$tests_to_run" >&2
   exit 0
-}
+fi
 
-# Đường dẫn test trong repo này không có khoảng trắng -> word-splitting an toàn.
-# shellcheck disable=SC2086
-if ! vendor/bin/phpunit $tests_to_run; then
+if ! make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-test TEST="$tests_to_run"; then
   echo "[run-related-tests hook] Unit test FAILED: ${tests_to_run}" >&2
   exit 2
 fi

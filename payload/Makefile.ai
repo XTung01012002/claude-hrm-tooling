@@ -3,12 +3,13 @@
 #      make -f Makefile.ai ai-test TEST=tests/Unit/FooTest.php
 # Giữ ngoài git team qua .git/info/exclude (install.sh thêm dòng "Makefile.ai").
 EXEC := cd docker/local && docker compose exec -T hrm-api
+.PHONY: ai-lint ai-pint ai-check ai-test ai-artisan ai-php
 # strip "source/" để ra path tương đối /var/www/html trong container
 CFILE = $(patsubst source/%,%,$(FILE))
 
 ai-lint:    ; @$(EXEC) php -l "$(CFILE)"
 ai-pint:    ; @$(EXEC) vendor/bin/pint "$(CFILE)"
 ai-check: ai-lint ai-pint
-ai-test:    ; @$(EXEC) vendor/bin/phpunit $(TEST)
+ai-test:    ; @$(EXEC) vendor/bin/phpunit --do-not-cache-result $(TEST)
 ai-artisan: ; @$(EXEC) php artisan $(CMD)
 ai-php:     ; @$(EXEC) php $(CMD)

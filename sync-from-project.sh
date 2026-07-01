@@ -8,12 +8,14 @@ SRC="${1:-}"
 SRC="$(cd "$SRC" 2>/dev/null && pwd)" || { echo "Khong tim thay thu muc: $1" >&2; exit 1; }
 DEST="$(cd "$(dirname "$0")" && pwd)/payload"
 
-paths="CLAUDE.md AGENTS.md docs/ai .claude/commands .claude/hooks .agent .codex"
+paths="CLAUDE.md AGENTS.md Makefile.ai docs/ai .claude/commands .claude/hooks .claude/settings.json .claude/skills .agent .codex"
 for p in $paths; do
   if [ -e "$SRC/$p" ]; then
     mkdir -p "$DEST/$(dirname "$p")"
     rm -rf "$DEST/$p"
     cp -R "$SRC/$p" "$DEST/$p"
+    # Xóa .bak files (tạo bởi installer) để tránh bị git add -A
+    find "$DEST/$p" -name '*.bak' -delete 2>/dev/null || true
     echo "  <= $p"
   fi
 done

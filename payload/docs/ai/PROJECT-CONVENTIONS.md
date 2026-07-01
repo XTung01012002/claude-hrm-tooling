@@ -116,12 +116,12 @@ Theo khuôn `SaveZaloAccountStaff/`:
 - **Môi trường thật là Docker container `hrm-api`** (PHP **8.2.31**). Host PHP có thể mới hơn (vd PHP 8.5) nên **không dùng làm chuẩn verify**.
 - **Không chạy trực tiếp trên host**: `php`, `composer`, `php artisan`, `vendor/bin/phpunit`, `vendor/bin/pint` khi kiểm tra code. Host PHP mới hơn có thể lint pass syntax không tương thích PHP 8.2.
 - **Lệnh chuẩn cho AI/agent**:
-  - Syntax PHP 8.2: `make ai-lint FILE=source/path/to/File.php`
-  - Format 1 file: `make ai-pint FILE=source/path/to/File.php`
-  - Format + lint 1 file: `make ai-check FILE=source/path/to/File.php`
-  - Unit test: `make ai-test TEST=tests/Unit/XTest.php`
-  - Artisan: `make ai-artisan CMD="route:list"`
-  - Kiểm PHP container: `make ai-php CMD="-v"`
+  - Syntax PHP 8.2: `make -f Makefile.ai ai-lint FILE=source/path/to/File.php`
+  - Format 1 file: `make -f Makefile.ai ai-pint FILE=source/path/to/File.php`
+  - Format + lint 1 file: `make -f Makefile.ai ai-check FILE=source/path/to/File.php`
+  - Unit test: `make -f Makefile.ai ai-test TEST=tests/Unit/XTest.php`
+  - Artisan: `make -f Makefile.ai ai-artisan CMD="route:list"`
+  - Kiểm PHP container: `make -f Makefile.ai ai-php CMD="-v"`
 - Composer/deps vẫn chạy trong container (`make shell` → `composer install` → `make copy-vendor`) hoặc dùng các target composer sẵn có của `Makefile`.
 
 ---

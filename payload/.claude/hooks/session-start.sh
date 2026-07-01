@@ -17,7 +17,7 @@ else
   # Kiểm tra docker container
   if ! make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-php CMD="-v" >/dev/null 2>&1; then
      warn "Không thể truy cập container \`hrm-api\` qua Docker Compose."
-     warn "Code PHP sẽ fallback sang kiểm tra bằng máy host (có nguy cơ BÁO XANH GIẢ do sai lệch phiên bản PHP)."
+     warn "Hooks lint/format/test sẽ BỎ QUA (KHÔNG fallback sang host PHP). Code sẽ không được tự kiểm tra."
      warn "👉 Hãy bật Docker container để AI tự kiểm tra được cú pháp chuẩn."
   fi
 fi

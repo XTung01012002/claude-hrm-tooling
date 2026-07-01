@@ -77,8 +77,9 @@ fi
 echo
 echo "Da cai: Claude (.claude/commands+hooks), Antigravity (.agent/workflows), Codex (~/.codex/prompts neu co)."
 
-# Cấu hình cài đặt settings.local.json thông qua jq deep merge
+# Cấu hình cài đặt settings.local.json thông qua jq deep merge (append + dedup arrays)
 echo "Đang cấu hình settings.local.json..."
+MERGE_OK=0
 if command -v jq >/dev/null 2>&1; then
   mkdir -p "$(dirname "$SETTINGS_FILE")"
   if [ ! -f "$SETTINGS_FILE" ]; then
@@ -86,14 +87,41 @@ if command -v jq >/dev/null 2>&1; then
   fi
   SNIPPET="$(dirname "$0")/hooks-snippet.json"
   if [ -f "$SNIPPET" ]; then
-    jq -s '.[0] * .[1]' "$SETTINGS_FILE" "$SNIPPET" > "${SETTINGS_FILE}.tmp" && mv "${SETTINGS_FILE}.tmp" "$SETTINGS_FILE"
-    echo "  + Đã merge hooks vào $SETTINGS_FILE tự động."
+    # Deep merge: object keys merge đệ quy, arrays append + deduplicate (idempotent)
+    if jq -n --slurpfile base "$SETTINGS_FILE" --slurpfile new "$SNIPPET" '
+      def deep_merge($b):
+        if type == "object" and ($b | type) == "object" then
+          . as $a | reduce ($b | keys[]) as $k ($a;
+            if has($k) then .[$k] = (.[$k] | deep_merge($b[$k]))
+            else .[$k] = $b[$k] end
+          )
+        elif type == "array" and ($b | type) == "array" then
+          [.[], $b[]] | unique_by(tojson)
+        else $b
+        end;
+      $base[0] | deep_merge($new[0])
+    ' > "${SETTINGS_FILE}.tmp"; then
+      mv "${SETTINGS_FILE}.tmp" "$SETTINGS_FILE"
+      echo "  + Đã merge hooks vào $SETTINGS_FILE (arrays append + dedup, idempotent)."
+      MERGE_OK=1
+    else
+      rm -f "${SETTINGS_FILE}.tmp"
+      echo "❌ Merge hooks THẤT BẠI — $SETTINGS_FILE có thể chứa JSON sai. Kiểm tra lại file rồi chạy lại install.sh." >&2
+    fi
   fi
 else
   echo "⚠️ Không tìm thấy lệnh 'jq', vui lòng cài đặt 'jq' hoặc merge tay phần 'hooks' từ hooks-snippet.json vào $SETTINGS_FILE."
 fi
 
 if [ -f "$(dirname "$0")/VERSION" ]; then
-  echo "Cài đặt thành công tooling phiên bản: $(cat "$(dirname "$0")/VERSION")"
+  VER="$(cat "$(dirname "$0")/VERSION")"
+  if [ "$MERGE_OK" = "1" ]; then
+    echo "Cài đặt thành công tooling phiên bản: $VER"
+  else
+    echo "Cài đặt tooling phiên bản $VER hoàn tất (⚠️ hooks chưa được merge — xem cảnh báo ở trên)." >&2
+  fi
 fi
 echo "Khởi động lại phiên làm việc AI để áp dụng thay đổi."
+
+# Exit 1 nếu merge thất bại — caller biết cần kiểm tra
+[ "$MERGE_OK" = "1" ] || exit 1

@@ -3,7 +3,7 @@
 # Lint (php -l) + auto-format (Pint) FILE vừa được Edit/Write nếu là .php.
 # Đọc JSON hook từ stdin. Exit 0 = không chặn; exit 2 = chặn & báo ngược cho AI sửa.
 #
-# Tham chiếu: https://docs.anthropic.com/en/docs/claude-code/hooks
+# v1.4: bỏ host fallback — nếu Docker down thì skip rõ ràng (exit 0 + cảnh báo) thay vì verify bằng host PHP.
 set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -24,7 +24,6 @@ case "$FILE" in
 esac
 
 # Chuẩn hóa về absolute path từ repo root (path có thể tương đối kiểu source/src/...).
-# KHÔNG cd source rồi nối — sẽ thành đường dẫn sai.
 case "$FILE" in
   /*) ABS="$FILE" ;;
   *)  ABS="$REPO_ROOT/$FILE" ;;
@@ -40,39 +39,27 @@ container_up() {
   ( cd "$REPO_ROOT/docker/local" 2>/dev/null && docker compose exec -T hrm-api true >/dev/null 2>&1 )
 }
 
-CU=0
-if container_up; then
-  CU=1
+# Kiểm tra Docker — KHÔNG fallback sang host
+if ! has_make_target; then
+  echo "[php-lint hook] ⚠️ Makefile.ai không tồn tại — bỏ qua lint/format. Chạy tay: make -f Makefile.ai ai-check FILE=$REL" >&2
+  exit 0
+fi
+
+if ! container_up; then
+  echo "[php-lint hook] ⚠️ Container hrm-api không chạy — bỏ qua lint/format. Bật Docker rồi chạy tay: make -f Makefile.ai ai-check FILE=$REL" >&2
+  exit 0
 fi
 
 # 1) Kiểm tra cú pháp — chặn nếu lỗi
-if has_make_target ai-lint && [ "$CU" = "1" ]; then
-  if ! OUT="$(make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-lint FILE="$REL" 2>&1)"; then
-    {
-      echo "[php-lint hook] make ai-lint FAILED:"
-      printf '%s\n' "$OUT"
-    } >&2
-    exit 2
-  fi
-else
-  echo "[php-lint hook] ⚠️ Makefile.ai/ai-* không có hoặc container down → verify trên HOST php, KHÔNG phải container 8.2.31 — kết quả KHÔNG đáng tin." >&2
-  if ! php -l "$ABS" >/dev/null 2>&1; then
-    {
-      echo "[php-lint hook] php -l FAILED:"
-      php -l "$ABS" 2>&1
-    } >&2
-    exit 2
-  fi
+if ! OUT="$(make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-lint FILE="$REL" 2>&1)"; then
+  {
+    echo "[php-lint hook] make ai-lint FAILED:"
+    printf '%s\n' "$OUT"
+  } >&2
+  exit 2
 fi
 
-# 2) Auto-format bằng Pint (không chặn nếu Pint không có)
-if has_make_target ai-pint && [ "$CU" = "1" ]; then
-  make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-pint FILE="$REL" >/dev/null 2>&1 || true
-else
-  PINT="$REPO_ROOT/source/vendor/bin/pint"
-  if [ -x "$PINT" ]; then
-    "$PINT" "$ABS" >/dev/null 2>&1 || true
-  fi
-fi
+# 2) Auto-format bằng Pint (không chặn nếu Pint fail)
+make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-pint FILE="$REL" >/dev/null 2>&1 || true
 
 exit 0
