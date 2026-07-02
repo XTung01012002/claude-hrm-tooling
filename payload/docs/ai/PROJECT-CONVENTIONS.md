@@ -67,6 +67,8 @@ Theo khuôn `SaveZaloAccountStaff/`:
   - Tách helper `private` có docblock tiếng Việt.
 - `<Feature>ValidationInterface.php`: contract `validate(<Command> $command): void`. Impl ở `Infrastructure/<Module>/Validations/<Feature>Validation.php`, bind trong ServiceProvider của module.
 
+- **Naming convention (Input/Output):** LUÔN dùng `camelCase` cho các trường dữ liệu API (cả input gửi lên và output trả về) cũng như tên biến/property trong DTO (Command/Query), KHÔNG dùng `snake_case`.
+
 **Response envelope** (toàn cục, ở `source/bootstrap/app.php` + `ApiBaseController`):
 - Detail/action thành công: `jsonResponse($data, $message)` → `{ "data": {...}, "status": "success", "code": 200, "message": "..." }`
 - List thành công: `jsonResponseMeta($data, $message)` → `{ "data": [...], "links": {...}, "meta": {...}, "status": "success", "code": 200, "message": "..." }`

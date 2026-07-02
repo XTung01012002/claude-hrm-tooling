@@ -8,6 +8,7 @@ Nhiệm vụ của bạn là tạo một feature hoàn chỉnh dựa trên cấu
 1. **Command / Query**:
    - Khai báo biến properties là `public readonly` (theo §3 DTO).
    - Hàm `fromRequest()` dùng để lấy biến, trong đó luôn gán `companyId` từ token / current session nếu feature yêu cầu authentication.
+   - **Tên biến/property (input/output)**: LUÔN dùng `camelCase`, KHÔNG dùng `snake_case`.
 
 2. **ValidationInterface**:
    - Chỉ tạo interface đóng vai trò contract với hàm `validate(<Command>): void` (hoặc method có tham số Command tương ứng).

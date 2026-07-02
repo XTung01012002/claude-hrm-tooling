@@ -11,7 +11,8 @@
 ## Khuôn feature
 1 feature = `<Feature>Command|Query` + `<Feature>Handler` (`declare(strict_types=1)`, `readonly` (trừ property Job cha abstract — xem §5), inject interface, gọi `validate()` đầu tiên, `BusinessException(<VN>, <httpCode>)`, return `array`) + `<Feature>ValidationInterface`. Code ở `source/src` (Core/Infrastructure/Presentation); Jobs/Console ở `source/app`.
 
-## Response envelope (toàn cục — `source/bootstrap/app.php` + `ApiBaseController`)
+## Response & Payload envelope (toàn cục)
+- **Naming convention:** LUÔN dùng `camelCase` cho các trường dữ liệu API (input & output) và tên biến trong DTO.
 - Thành công: `{ "data", "status":"success", "code":200, "message" }` (list thêm `links`, `meta`).
 - Lỗi: `{ "status":"error", "code", "message", "errors"? }`; validation fail → **422**.
 
