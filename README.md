@@ -6,8 +6,8 @@ Bộ AI tooling cá nhân cho **HRM API**, tách khỏi repo code team. Đồng 
 
 ## Nội dung (`payload/` — mirror cấu trúc project; `install.sh` copy hết)
 - `CLAUDE.md` (Claude) · `AGENTS.md` (Antigravity/Codex/Cursor) — pointer rule, trỏ về `docs/ai/PROJECT-CONVENTIONS.md`.
-- `docs/ai/PROJECT-CONVENTIONS.md` + `docs/ai/prompts/*.md` — nguồn chân lý trung lập (review · generate-api-docs · generate-test · refactor · task-breakdown).
-- `.claude/commands/*.md` + `.claude/hooks/*.sh` — lệnh `/review` `/api-docs` `/scaffold-test` `/refactor` `/task-breakdown` + hook lint/format/test (Claude).
+- `docs/ai/PROJECT-CONVENTIONS.md` + `docs/ai/prompts/*.md` — nguồn chân lý trung lập (review · review-vs-plan · generate-api-docs · generate-test · refactor · task-breakdown).
+- `.claude/commands/*.md` + `.claude/hooks/*.sh` — lệnh `/review` `/review-vs-plan` `/api-docs` `/scaffold-test` `/refactor` `/task-breakdown` + hook lint/format/test (Claude).
 - `.agent/workflows/*.md` + `.agent/hooks.json` — workflows + hooks (Antigravity).
 - `.codex/hooks.json` — hooks (Codex); prompts cài vào `~/.codex/prompts` qua `install.sh`.
 - `api-docs/**` — docs FE (HRM-specific).

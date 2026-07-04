@@ -1,4 +1,4 @@
-# payload/Makefile.ai — ai-* targets chạy THẬT trong container hrm-api (PHP 8.2.31).
+# payload/Makefile.ai — ai-* targets chạy THẬT trong container hrm-api (version: chạy ai-php để verify).
 # Gọi: make -f Makefile.ai ai-lint FILE=source/src/.../Foo.php
 #      make -f Makefile.ai ai-test TEST=tests/Unit/FooTest.php
 # Giữ ngoài git team qua .git/info/exclude (install.sh thêm dòng "Makefile.ai").

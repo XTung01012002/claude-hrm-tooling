@@ -63,18 +63,23 @@ Không chắc chắn thì không được gắn **Cao**. Nêu chính xác điề
 
 ```markdown
 ## Phạm vi đã review
+
 <base/range hoặc staged/unstaged; giới hạn file; cảnh báo fallback nếu có>
 
 ## 🔴 Cao
+
 - [file.php:line] <vấn đề và tác động> → <cách sửa> (đã verify: <code/config/test đã đọc>)
 
 ## 🟡 Trung bình
+
 - ...
 
 ## 🟢 Thấp / Cần xác nhận
+
 - ...
 
 ## Ngoài phạm vi diff — phát hiện thêm
+
 - [Mức độ] [file.php:line] <vấn đề có sẵn> → <cách sửa> (đã verify: <bằng chứng>)
 
 Tổng kết: <Cao> cao, <Trung bình> trung bình, <Thấp> thấp/cần xác nhận. Ngoài phạm vi: <số lượng>.

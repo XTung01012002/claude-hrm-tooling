@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- Thêm reviewer độc lập `/review-vs-plan` cho Claude Code, Codex và Antigravity: đối chiếu từng mục Plan cuối với code thật, tách thay đổi ngoài Plan khỏi finding chất lượng và kiểm tra bằng chứng test.
+
+### Changed
+- Tách convention bền vững khỏi snapshot dễ thay đổi; thêm ngày và HRM source commit đã verify.
+- Sửa mô tả Queue/Horizon theo từng environment và làm rõ queue connection Redis.
+- Đồng bộ response envelope với exception renderer thật; bổ sung taxonomy exception và quy ước i18n.
+- Bổ sung cache key/TTL/invalidation/store semantics; bỏ TODO `preserveRejectedStatus` khỏi source of truth.
+- Đồng bộ `CLAUDE.md`, `AGENTS.md` và các prompt liên quan; runtime version chuyển thành snapshot cần re-verify.
+- Làm rõ phạm vi tài liệu; Git branch/commit/PR workflow tiếp tục theo quy định team hoặc prompt riêng.
+
 ## [1.4.0] - 2026-07-01
 
 ### Fixed

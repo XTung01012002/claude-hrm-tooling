@@ -3,6 +3,10 @@
 > **Tài liệu trung lập (AI-agnostic).** Đưa file này cho bất kỳ AI nào (Claude / ChatGPT / Cursor / Copilot / Gemini) trước khi nhờ code/review/viết docs. Nội dung được rút ra & **verify từ code thật** trong `source/`, không phải quy ước lý thuyết.
 >
 > Lớp tiện ích Claude (`CLAUDE.md`, `.claude/commands/*`, `.claude/hooks/*`) chỉ **trỏ về** file này — đây mới là nguồn chân lý.
+>
+> **Last fully verified:** 2026-07-03 · HRM source `dev@fe0feba14c11388da1bbd09108b3f60128b16514`. Các giá trị cấu hình và ngoại lệ legacy là **snapshot**, xem §12; luôn re-verify trước khi dựa vào chúng.
+>
+> **Phạm vi:** kiến trúc, code, API contract, test và runtime của HRM API. Git branch/commit/PR workflow theo quy định của team hoặc prompt `commit-message.md`, không thuộc tài liệu này.
 
 ---
 
@@ -14,6 +18,7 @@
 - Chỉ dùng interface / method / field **có thật** trong codebase. Không chắc → tra cứu, **không đoán**.
 - **Không bịa**: không bịa field response, không bịa rule validate, không bịa endpoint, không bịa giá trị enum.
 - Khi review hay viết docs: mỗi khẳng định phải truy được về `file:line` thật. Nếu không kiểm chứng được → nói rõ "chưa kiểm chứng", đừng khẳng định.
+- Với thông tin dễ thay đổi (config, version runtime, timeout, danh sách ngoại lệ legacy): đọc lại file nguồn hiện tại; metadata và §12 chỉ là mốc gần nhất, KHÔNG thay thế việc verify.
 
 ---
 
@@ -29,7 +34,6 @@
   - Hàm thuần/stateless → `Core/<Module>/Shared/<Name>` (như `PlatformTime`, `TagNameNormalizer`) hoặc static method trên enum liên quan.
   - Tiện ích cross-cutting → `Infrastructure/Shared/Helper.php`.
   - Behavior chia sẻ giữa nhiều class → Trait ở `Infrastructure/.../Traits/` (vd `ResolvesUsersByAccountPermissionSubject`).
-  - Ví dụ đang lặp cần gom: `preserveRejectedStatus()` (đang copy ở `GetFriendStatusHandler` + `SearchZaloContactHandler`).
   - **Đừng over-engineer**: chỉ tách khi thật sự dùng ≥2 nơi (hoặc chắc chắn sẽ tái dùng); 1 chỗ dùng → để `private` method, không tạo abstraction thừa.
 
 ---
@@ -48,11 +52,13 @@ source/app/                            # Jobs, Console commands, Providers, Fila
 Luồng 1 request: **Controller → Command/Query → ValidationInterface → Handler → Repository (qua interface)**.
 
 - **Chuẩn mới ưu tiên:** Core chỉ phụ thuộc **interface** ở `Shared/`, **hạn chế** import class Infrastructure cụ thể.
-- *Ngoại lệ legacy đã tồn tại* (KHÔNG coi là khuôn để nhân rộng): `CreateTagHandler` import `Infrastructure\...\Mappers\ChatTagMapper`; `OmnichannelPermissionChecker` dùng trait `Infrastructure\User\Traits\ResolvesUsersByAccountPermissionSubject`. Nếu viết feature mới, đừng bắt chước các ngoại lệ này.
+- Ngoại lệ legacy hiện hành được liệt kê ở snapshot §12 để tránh trộn trạng thái tạm thời vào rule kiến trúc. KHÔNG dùng chúng làm khuôn cho code mới.
 
 ---
 
-## §3. Convention code (1 feature = 3 file)
+## §3. Convention code
+
+### §3.1. Cấu trúc feature (1 feature = 3 file)
 
 Theo khuôn `SaveZaloAccountStaff/`:
 
@@ -61,21 +67,36 @@ Theo khuôn `SaveZaloAccountStaff/`:
   - `declare(strict_types=1);`
   - `readonly class`, constructor inject **interface** (validation, repo, api, cache...).
   - Gọi `$this->validation->validate($command)` **đầu tiên**.
-  - Ném lỗi nghiệp vụ bằng `BusinessException(<message tiếng Việt>, <httpCode>)` (`Gopany\Core\Components\Shared\BusinessException`).
+  - Ném lỗi nghiệp vụ dự kiến bằng `BusinessException(<message cho người dùng>, <httpCode>)` (`Gopany\Core\Components\Shared\BusinessException`); cách tạo message theo §3.4.
   - Dùng enum qua `->value` (vd `FriendshipStatusEnum::REJECTED->value`).
   - `handle(...)` trả về `array`.
   - Tách helper `private` có docblock tiếng Việt.
 - `<Feature>ValidationInterface.php`: contract `validate(<Command> $command): void`. Impl ở `Infrastructure/<Module>/Validations/<Feature>Validation.php`, bind trong ServiceProvider của module.
 
-- **Naming convention (Input/Output):** LUÔN dùng `camelCase` cho các trường dữ liệu API (cả input gửi lên và output trả về) cũng như tên biến/property trong DTO (Command/Query), KHÔNG dùng `snake_case`.
+### §3.2. Naming Input/Output
 
-**Response envelope** (toàn cục, ở `source/bootstrap/app.php` + `ApiBaseController`):
+- LUÔN dùng `camelCase` cho các trường dữ liệu API (cả input gửi lên và output trả về) cũng như tên biến/property trong DTO (Command/Query), KHÔNG dùng `snake_case`.
+
+### §3.3. Response envelope
+
+Response được định nghĩa ở `source/bootstrap/app.php` + `ApiBaseController`:
+
 - Detail/action thành công: `jsonResponse($data, $message)` → `{ "data": {...}, "status": "success", "code": 200, "message": "..." }`
 - List thành công: `jsonResponseMeta($data, $message)` → `{ "data": [...], "links": {...}, "meta": {...}, "status": "success", "code": 200, "message": "..." }`
-- Lỗi (render ở `bootstrap/app.php`): `{ "status": "error", "code": <http|string>, "message": "...", "errors"?: {...} }`
-  - `ValidationException` → 422, `message` = lỗi đầu tiên, `errors` = `{ field: <message đầu> }`
-  - `BusinessException` → `code` = httpCode đặt trong Handler, kèm `errors` nếu có
-  - `ModelNotFound`/`NotFoundHttp` → 404, `Unauthorized` → 401, `AccessDenied` → 403, còn lại → 500
+- Lỗi phổ biến: `{ "status": "error", "code": <http|string>, "message": "...", "errors"?: {...} }`.
+  - `ValidationException` → HTTP/code 422, `message` = lỗi đầu tiên, `errors` = `{ field: <message đầu> }`.
+  - `BusinessException` → HTTP/code = code đặt khi khởi tạo, kèm `errors` nếu có.
+  - `InsufficientResourceException` → HTTP 400, `code: "INSUFFICIENT_RESOURCES"`.
+  - `ModelNotFoundException` / `NotFoundHttpException` → HTTP/code 404.
+  - **Legacy khác envelope chung:** `UnauthorizedHttpException` trả `status: "Unauthorized"`; `AccessDeniedHttpException` trả `status: "Forbidden"`; lỗi 500 hiện có thêm `error` chứa exception message.
+- Khi sửa feature hiện có, giữ nguyên response theo §11. KHÔNG giả định mọi lỗi đều có `status: "error"`; đọc renderer thật. Field `error` của lỗi 500 là behavior legacy, không coi là public contract để nhân rộng và không đưa dữ liệu nhạy cảm vào exception message.
+
+### §3.4. Exception & i18n
+
+- `ValidationException`: lỗi validate input. `BusinessException`: lỗi nghiệp vụ dự kiến cần trả về API với HTTP code rõ ràng.
+- `InsufficientResourceException` có renderer riêng. `CloudflareException` / `TechnitiumException` là lỗi tích hợp hạ tầng; KHÔNG dùng thay `BusinessException` cho lỗi nghiệp vụ API và phải kiểm tra boundary catch/render trước khi để exception đi ra ngoài.
+- Chỉ tạo custom exception mới khi cần semantics xử lý khác biệt thật sự (renderer, retry/catch hoặc error code ổn định); không tạo chỉ để đổi tên.
+- Codebase đang dùng **cả hai** kiểu message: translation (`trans()` / `__()`, file ở `source/lang/vi/`) và tiếng Việt hard-code ở các module legacy. Khi sửa, theo pattern của module/feature hiện tại; module đã dùng translation thì tái sử dụng/thêm key thật, KHÔNG bịa key. Không tự mass-migrate message vì có thể đổi public behavior (§11).
 
 ---
 
@@ -83,7 +104,7 @@ Theo khuôn `SaveZaloAccountStaff/`:
 
 - Code **mới** hoặc đoạn repo **bạn sửa**: dùng Eloquent Model (`Model::create`, `->update`, `->where`, relationships, `::withTrashed()`...) → cast (`$casts`) tự áp dụng.
 - **Tránh** `DB::table()` / `DB::raw()` cho ghi: query-builder bỏ qua cast → MySQL strict ném **1292** khi nhét chuỗi ISO vào cột datetime. Nếu *buộc* dùng query-builder cho cột datetime, truyền `Carbon`, không phải chuỗi ISO.
-- **Ngoại lệ legacy**: nhiều repo hiện vẫn dùng query-builder, vd `OmnichannelChatRepository::syncAccountStaff()` dùng `DB::table('zalo_account_users')->delete()/insert()/update()`. Đây là legacy — nếu chạm vào thì cân nhắc migrate sang Eloquent hoặc ghi chú lý do; **đừng copy** làm khuôn cho code mới.
+- Nhiều repository legacy vẫn dùng query-builder; snapshot §12 ghi ví dụ đã verify. Nếu chạm vào thì cân nhắc migrate sang Eloquent hoặc ghi chú lý do; **đừng copy** làm khuôn cho code mới.
 - List/filter dùng **Spatie QueryBuilder** (dựa trên Eloquent) là chấp nhận được.
 
 ---
@@ -92,12 +113,9 @@ Theo khuôn `SaveZaloAccountStaff/`:
 
 - **Timestamp Zalo**: webhook/API trả epoch dạng số (ms hoặc giây) → dùng `Gopany\Core\Components\OmnichannelChat\Shared\PlatformTime::parse()`, KHÔNG `Carbon::parse()` thô (parse sai âm thầm).
 - **Carbon 3 signed diff**: `diffIn*()` trả **có dấu** (âm khi đối số ở quá khứ) → dễ hỏng logic so ngưỡng thời gian. Bọc `abs()` nếu cần độ lớn.
-- **Cột datetime + query-builder**: truyền `Carbon`, không phải chuỗi ISO (xem §4).
-- **Queue/Horizon** (đã verify):
-  - `config/queue.php`: chỉ 1 connection `redis`, `retry_after` = 700 (env `REDIS_QUEUE_RETRY_AFTER`).
-  - `config/horizon.php`: các queue `chat` / `chat-heavy` / `domain` là **supervisor** trên cùng connection `redis`, đặt `timeout` riêng (chat **60** / chat-heavy **610** / domain **600**) — KHÔNG phải `retry_after` riêng.
-  - Quy tắc: `timeout` worker phải **< `retry_after`** của connection, tránh job chạy trùng.
-- **PHP 8.2 + Job cha abstract**: tránh `readonly` ở property của abstract Job cha — fail unserialize với `SerializesModels` (reflection). (Container chạy PHP 8.2.31.)
+- **Cột datetime + query-builder**: xem §4; nhắc lại tại đây vì đây là lỗi runtime MySQL khó phát hiện khi lint.
+- **Queue/Horizon**: `retry_after` thuộc queue connection, còn `timeout` thuộc Horizon supervisor và có thể khác theo environment. Trước khi sửa/đánh giá job, đọc cả `config/queue.php` lẫn `config/horizon.php`; luôn giữ `timeout < retry_after` của connection để tránh job chạy trùng. Giá trị hiện tại xem snapshot §12.
+- **PHP 8.2 + Job cha abstract**: tránh `readonly` ở property của abstract Job cha — fail unserialize với `SerializesModels` (reflection). Runtime pin hiện tại xem §12.
 - **Job/Queue**: đặt `tries` + `backoff()`; re-query DB trong job nếu dữ liệu có thể stale; `WithoutOverlapping` khi cùng key không được chạy song song; không nuốt exception nếu cần retry (log rồi `throw` lại).
 
 ---
@@ -115,7 +133,7 @@ Theo khuôn `SaveZaloAccountStaff/`:
 
 ## §7. Lệnh & môi trường (QUAN TRỌNG — local ≠ Docker)
 
-- **Môi trường thật là Docker container `hrm-api`** (PHP **8.2.31**). Host PHP có thể mới hơn (vd PHP 8.5) nên **không dùng làm chuẩn verify**.
+- **Môi trường chuẩn là Docker container `hrm-api`**. Host PHP có thể mới hơn nên **không dùng làm chuẩn verify**; version pin gần nhất ở §12 và phải kiểm tra lại bằng `ai-php`.
 - **Không chạy trực tiếp trên host**: `php`, `composer`, `php artisan`, `vendor/bin/phpunit`, `vendor/bin/pint` khi kiểm tra code. Host PHP mới hơn có thể lint pass syntax không tương thích PHP 8.2.
 - **Lệnh chuẩn cho AI/agent**:
   - Syntax PHP 8.2: `make -f Makefile.ai ai-lint FILE=source/path/to/File.php`
@@ -138,10 +156,22 @@ Theo khuôn `SaveZaloAccountStaff/`:
 
 ---
 
-## §9. Transaction, race condition & webhook
+## §9. Transaction, race condition, cache & webhook
+
+### §9.1. Transaction & race condition
 
 - `DB::transaction()` khi 1 use case ghi **nhiều bảng** cần atomic (vd sync staff: delete + insert + update). KHÔNG bọc transaction cho query đọc đơn giản.
 - `lockForUpdate()` cho read-modify-write dưới đồng thời (verified: `OmnichannelChatRepository::syncAccountStaff`). Cân nhắc unique index / `insertOrIgnore` / check-existing để idempotent.
+
+### §9.2. Cache
+
+- Code Core mới ưu tiên inject interface hẹp ở `Shared/` khi cache là dependency nghiệp vụ/cần mock; implementation đặt ở Infrastructure. Direct `Cache` facade trong Core hiện có là legacy, không tự động coi là pattern mới.
+- Key phải có namespace rõ và đủ tenant/resource identifier để không đụng chéo công ty. Chọn cache store có chủ đích; idempotency/webhook chạy qua nhiều worker phải dùng shared store phù hợp.
+- Mọi entry tạm thời/lock/idempotency key phải có TTL rõ ràng. Với cache dữ liệu không TTL (`rememberForever`), bắt buộc xác định đường invalidation khi dữ liệu thay đổi.
+- Phân biệt semantics: lock/idempotency key có thể cần `forget()` khi dispatch thất bại; throttle key có thể cố ý giữ đến hết TTL sau khi thành công. Không xóa cache “cho sạch” nếu làm đổi behavior.
+
+### §9.3. Webhook
+
 - **Webhook**: idempotent + **KHÔNG downgrade trạng thái mới hơn** do event đến trễ/lặp. Verified guard trong `FriendshipEventHandler` (bỏ qua nếu đã `FRIEND`; chỉ reject từ trạng thái pending). Timestamp webhook dùng `PlatformTime::parse` (§5).
 
 ---
@@ -156,7 +186,21 @@ Theo khuôn `SaveZaloAccountStaff/`:
 
 ## §11. Sửa code có sẵn — giữ behavior (surgical)
 
-- Chỉ sửa phần liên quan yêu cầu. **KHÔNG tự đổi** (trừ khi được yêu cầu): response shape / tên key / status code / message lỗi tiếng Việt / enum value / tên route / queue / Redis connection / schema / migration / public API.
+- Chỉ sửa phần liên quan yêu cầu. **KHÔNG tự đổi** (trừ khi được yêu cầu): response shape / tên key / status code / message lỗi trả cho người dùng / enum value / tên route / queue / Redis connection / schema / migration / public API.
 - Phân biệt `null` (FE không gửi field) vs `[]` (gửi rỗng để clear) — đừng đổi `?array` thành `array = []`.
 - Thấy vấn đề **ngoài phạm vi** → nêu ra, KHÔNG tự sửa.
 - Thiếu thông tin có thể làm **đổi behavior** (null = clear? empty = xóa hết? API fail có retry?) → **HỎI trước khi sửa**.
+
+---
+
+## §12. Snapshot đã verify — PHẢI kiểm tra lại
+
+> Snapshot này phản ánh HRM source `dev@fe0feba14c11388da1bbd09108b3f60128b16514`, verified 2026-07-03. Khi code/config đổi, cập nhật hoặc xóa entry tương ứng. Lịch sử “đã fix ngày nào” để ở Git/CHANGELOG/issue tracker, KHÔNG giữ trong convention đang sống.
+
+- **Legacy layering:** `CreateTagHandler`, `UpdateTagHandler`, `AssignThreadTagsHandler`, `UnassignThreadTagHandler` import trực tiếp `Infrastructure\OmnichannelChat\Mappers\ChatTagMapper`; `OmnichannelPermissionChecker` dùng `Infrastructure\User\Traits\ResolvesUsersByAccountPermissionSubject`.
+- **Legacy query-builder:** `OmnichannelChatRepository::syncAccountStaff()` dùng `DB::table('zalo_account_users')` cho delete/insert/update.
+- **Queue:** `config/queue.php` có nhiều connection (`sync`, `database`, `beanstalkd`, `sqs`, `redis`), trong đó chỉ một connection dùng driver Redis và có tên `redis`; default `REDIS_QUEUE_RETRY_AFTER` = **700**.
+- **Horizon:** production/staging/development dùng connection `redis`, timeout `chat=60`, `chat-heavy=610`, `domain=600`. Local dùng `chat=60`, `chat-heavy=610`; queue `domain` nằm trong `supervisor-default` timeout **120**.
+- **Runtime:** Docker image local pin `frankenphp:1.12.3-php8.2.31-trixie-...`; source `composer.json` yêu cầu PHP `^8.2`. Docker daemon không chạy tại lần verify nên version **8.2.31** được xác nhận từ image pin, chưa runtime-probe bằng `php -v`.
+- **Custom exception hiện có:** `BusinessException`, `InsufficientResourceException`, `CloudflareException`, `TechnitiumException`.
+- **Cache hiện có:** `OmnichannelCacheInterface` chỉ expose `forgetThreadUserAccess()`; một số Core handler vẫn gọi `Cache` facade trực tiếp cho webhook idempotency/throttle — xem §9.2 trước khi viết code mới.

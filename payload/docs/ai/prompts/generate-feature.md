@@ -18,7 +18,7 @@ Nhiệm vụ của bạn là tạo một feature hoàn chỉnh dựa trên cấu
    - Cần khai báo `declare(strict_types=1);` và class `readonly` (trừ khi kế thừa property Job abstract từ `source/app`).
    - Gọi `validate()` (ValidationInterface) đầu tiên.
    - Return type hint phải là `array` nếu đây là HTTP Response, tuân thủ Response Envelope.
-   - Throw `BusinessException` với message Tiếng Việt (`<VN>`) và `httpCode` phù hợp khi gặp lỗi logic.
+   - Throw `BusinessException` với message cho người dùng theo pattern i18n thật của module (`trans()`/`__()` hoặc tiếng Việt hard-code legacy) và `httpCode` phù hợp khi gặp lỗi logic; KHÔNG bịa translation key.
    - Inject dependencies thông qua constructor.
 
 4. **Khai báo route / ServiceProvider**:
