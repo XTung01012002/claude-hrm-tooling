@@ -39,10 +39,10 @@ while IFS= read -r -d '' f; do
   dest="$TARGET/$rel"
   mkdir -p "$(dirname "$dest")"
   
-  # Idempotent backup
+  # Backup với timestamp (không ghi đè backup cũ)
   if [ -f "$dest" ] && ! cmp -s "$SRC/$rel" "$dest"; then
-    cp "$dest" "$dest.bak"
-    echo "  ! Đã sao lưu file cũ: $rel.bak"
+    cp "$dest" "$dest.bak.$(date +%Y%m%d-%H%M%S)"
+    echo "  ! Đã sao lưu file cũ: $rel.bak.$(date +%Y%m%d-%H%M%S)"
   fi
   cp "$SRC/$rel" "$dest"
   echo "  + $rel"
@@ -50,11 +50,15 @@ done < <(cd "$SRC" && find . -type f -print0)
 
 chmod +x "$TARGET/.claude/hooks/"*.sh 2>/dev/null || true
 
-# (Tùy chọn) Codex global slash commands: ~/.codex/prompts (dùng chung nội dung với .claude/commands)
+# (Tùy chọn) Codex global slash commands: ~/.codex/prompts (dùng chung nội dung với .claude/commands, có namespace)
 if [ -d "$HOME/.codex" ]; then
   mkdir -p "$HOME/.codex/prompts"
-  cp "$SRC"/.claude/commands/*.md "$HOME/.codex/prompts/" 2>/dev/null \
-    && echo "  + ~/.codex/prompts/ (Codex slash commands: /prompts:review, /prompts:refactor, ...)"
+  for cmd in "$SRC"/.claude/commands/*.md; do
+    [ -f "$cmd" ] || continue
+    base="$(basename "$cmd")"
+    cp "$cmd" "$HOME/.codex/prompts/hrm-${base}"
+  done
+  echo "  + ~/.codex/prompts/hrm-*.md (Codex slash commands: /prompts:hrm-review, /prompts:hrm-verify, ...)"
 fi
 
 # Giu file AI ngoai git cua repo team (per-clone, khong dung .gitignore tracked).

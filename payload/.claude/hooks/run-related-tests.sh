@@ -69,8 +69,18 @@ done < <(printf '%s\n' "$candidates" | sort -u)
 
 tests_to_run="$(printf '%s' "$tests_to_run" | sed 's/^ *//')"
 
-# Không có paired test -> skip êm
-[ -z "$tests_to_run" ] && exit 0
+# Không có paired test -> CẢNH BÁO rõ, không im lặng
+if [ -z "$tests_to_run" ]; then
+  changed_php="$(collect_changed | sort -u | grep '\.php$' | grep -v 'Test\.php$' || true)"
+  if [ -n "$changed_php" ]; then
+    {
+      echo "[run-related-tests hook] ⚠️ UNVERIFIED — không tìm thấy paired test cho:"
+      printf '%s\n' "$changed_php" | head -8 | sed 's/^/  - /'
+      echo "Hook chưa xác minh behavior. Cần AI tự chọn test liên quan hoặc gọi /scaffold-test."
+    } >&2
+  fi
+  exit 0
+fi
 
 # Kiểm tra Docker — KHÔNG fallback sang host
 if ! has_make_target; then

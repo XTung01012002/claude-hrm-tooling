@@ -59,7 +59,21 @@ if ! OUT="$(make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-lint FILE="$REL"
   exit 2
 fi
 
-# 2) Auto-format bằng Pint (không chặn nếu Pint fail)
-make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-pint FILE="$REL" >/dev/null 2>&1 || true
+# 2) Auto-format bằng Pint — cảnh báo nếu fail (không chặn vì format là best-effort)
+if ! PINT_OUT="$(make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-pint FILE="$REL" 2>&1)"; then
+  {
+    echo "[php-lint hook] ⚠️ Pint format thất bại — file có thể chưa được format:"
+    printf '%s\n' "$PINT_OUT" | tail -5
+  } >&2
+fi
+
+# 3) Re-lint sau format (Pint có thể thay đổi syntax)
+if ! OUT2="$(make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-lint FILE="$REL" 2>&1)"; then
+  {
+    echo "[php-lint hook] ❌ Lint thất bại SAU KHI format:"
+    printf '%s\n' "$OUT2"
+  } >&2
+  exit 2
+fi
 
 exit 0

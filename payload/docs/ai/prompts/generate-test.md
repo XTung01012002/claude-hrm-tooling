@@ -42,9 +42,21 @@ Mặc định đặt test tại `source/tests/Unit/<ClassName>Test.php`, theo co
   - Qua Laravel facade: chỉ dùng `Event::fake()`/`Queue::fake()` khi test boot ứng dụng bằng `Tests\TestCase`; không ép facade fake vào pure unit test không boot app.
   - Assert không dispatch ở nhánh lỗi nếu code yêu cầu như vậy.
 
-### Test Matrix 14 nhóm (BẮT BUỘC duyệt)
+### Bước 0 — Chọn Test Strategy Profile
 
-Với mỗi nhóm dưới đây: xác nhận có áp dụng cho class đang test không. Nếu có → viết test. Nếu không → ghi "N/A — lý do".
+Trước khi duyệt matrix, **chọn profile phù hợp** để không tốn token cho nhóm không liên quan:
+
+| Profile | Áp dụng cho | Nhóm test (số thứ tự) |
+|---|---|---|
+| **A — Pure logic** | Mapper, DTO, Value Object, Service thuần, Enum | 1, 2, 3, 12, 14 |
+| **B — Persistence/API** | Handler có repo/external API, Query | A + 4, 5, 10, 11 |
+| **C — Event-driven/Critical** | Queue, webhook, concurrent, transaction, dispatch | Toàn bộ 14 nhóm |
+
+AI chọn profile + giải thích 1 dòng. Sau đó **chỉ duyệt các nhóm trong profile đã chọn**.
+
+### Test Matrix 14 nhóm (duyệt theo profile đã chọn)
+
+Với mỗi nhóm **thuộc profile**: xác nhận có áp dụng không. Nếu có → viết test. Nếu không → ghi "N/A — lý do".
 
 | # | Nhóm | Mô tả | Ví dụ |
 |---|---|---|---|

@@ -82,7 +82,7 @@ Không chắc chắn thì không được gắn **Cao**. Nêu chính xác điề
 
 - [Mức độ] [file.php:line] <vấn đề có sẵn> → <cách sửa> (đã verify: <bằng chứng>)
 
-Tổng kết: <Cao> cao, <Trung bình> trung bình, <Thấp> thấp/cần xác nhận. Ngoài phạm vi: <số lượng>.
+Tổng kết: `N` cao, `N` trung bình, `N` thấp/cần xác nhận. Ngoài phạm vi: `N`.
 ```
 
 - Mỗi finding là một bullet riêng, phải chỉ ra vị trí chính xác, tác động, cách sửa và bằng chứng verify; không chỉ tóm tắt thay đổi.

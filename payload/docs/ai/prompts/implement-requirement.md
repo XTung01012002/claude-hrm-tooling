@@ -5,7 +5,19 @@
 > **Đọc trước:** `docs/ai/PROJECT-CONVENTIONS.md` (đặc biệt §0 cấm bịa, §1 reuse, §2 layering, §3 khuôn feature, §11 giữ behavior).
 
 ## Nhiệm vụ
-Triển khai yêu cầu theo quy trình 10 bước. **KHÔNG được code ngay.** Phải qua giai đoạn phân tích trước.
+Triển khai yêu cầu theo quy trình 10 bước.
+
+## Mode thực thi
+
+| Mode | Khi nào | Hành vi |
+|---|---|---|
+| **STRICT** (mặc định) | Feature mới, thay đổi API/schema/response, ≥3 file, có assumption | Dừng sau bước 7, chờ user approve trước khi code |
+| **AUTO** | Bug fix rõ ràng, thay đổi ≤2 file, không assumption quan trọng | Xuất plan ngắn (bước 2+5+7) rồi code luôn |
+| **PLAN_ONLY** | User chỉ muốn phân tích | Chỉ xuất bước 1–7, dừng hẳn, không code |
+
+- Nếu user chỉ định mode (vd "dùng AUTO", "chỉ phân tích"): dùng mode đó.
+- Nếu không: AI **tự chọn** mode và nêu lý do ở đầu output. User có thể override.
+- Khi nghi ngờ giữa AUTO và STRICT → **chọn STRICT** (an toàn hơn).
 
 ---
 
