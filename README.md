@@ -6,11 +6,10 @@ Bộ AI tooling cá nhân cho **HRM API**, tách khỏi repo code team. Đồng 
 
 ## Nội dung (`payload/` — mirror cấu trúc project; `install.sh` copy hết)
 - `CLAUDE.md` (Claude) · `AGENTS.md` (Antigravity/Codex/Cursor) — pointer rule, trỏ về `docs/ai/PROJECT-CONVENTIONS.md`.
-- `docs/ai/PROJECT-CONVENTIONS.md` + `docs/ai/prompts/*.md` — nguồn chân lý trung lập (review · review-vs-plan · generate-api-docs · generate-test · refactor · task-breakdown).
-- `.claude/commands/*.md` + `.claude/hooks/*.sh` — lệnh `/review` `/review-vs-plan` `/api-docs` `/scaffold-test` `/refactor` `/task-breakdown` + hook lint/format/test (Claude).
-- `.agent/workflows/*.md` + `.agent/hooks.json` — workflows + hooks (Antigravity).
+- `docs/ai/PROJECT-CONVENTIONS.md` + `docs/ai/prompts/*.md` — nguồn chân lý trung lập (13+ prompt: review, review-vs-plan, implement, scaffold-test, api-docs, code-docs, diff-review, verify, refactor, commit-message, find-reuse, scaffold-feature, task-breakdown).
+- `.claude/commands/*.md` + `.claude/hooks/*.sh` — 13+ slash commands + hook lint/format/test (Claude).
+- `.agent/workflows/*.md` + `.agent/hooks.json` — 13+ workflows + hooks (Antigravity).
 - `.codex/hooks.json` — hooks (Codex); prompts cài vào `~/.codex/prompts` qua `install.sh`.
-- `api-docs/**` — docs FE (HRM-specific).
 
 ## Đẩy lên remote private (lần đầu)
 ```bash

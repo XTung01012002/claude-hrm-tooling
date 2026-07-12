@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.0] - 2026-07-12
+
+### Added
+- **`/implement`** — Triển khai yêu cầu theo quy trình 10 bước (phân tích 7 bước trước → code sau). Prompt: `docs/ai/prompts/implement-requirement.md`.
+- **`/verify`** — Adversarial Final Verification: AI kiểm định cuối cùng, chỉ kiểm không sửa, 12 chiều kiểm tra. Dùng cho workflow 2 AI review lẫn nhau. Prompt: `docs/ai/prompts/adversarial-verify.md`.
+- **`/diff-review`** — Review diff trước → verdict PASS/FAIL → rồi mới sinh branch name + commit message + PR summary. Thay thế `/commit-message` cho workflow kỹ hơn. Prompt: `docs/ai/prompts/diff-review.md`.
+- **`/code-docs`** — Sinh tài liệu code nội bộ cho developer BE (khác `api-docs/` cho FE). Prompt: `docs/ai/prompts/generate-code-docs.md`.
+- Wrapper `.claude/commands/` và `.agent/workflows/` cho 4 prompt mới.
+
+### Changed
+- **`/scaffold-test`** viết lại hoàn toàn: bắt buộc tạo Test Matrix 14 nhóm (happy path, boundary, invalid, auth, state, duplicate, out-of-order, concurrency, transaction, external API, database, compatibility, side effects, time) trước khi viết test. Trước đây chỉ 3 nhóm.
+- **`/review`** nâng cấp: thêm Verdict (PASS / PASS WITH CONCERNS / REQUEST CHANGES), mục "Missing tests" và "Questions/Assumptions" tách riêng.
+- **`/api-docs`** nâng cấp: thêm mục "Lưu ý cho Frontend" bắt buộc (nullable fields, enum values, idempotency, reload, timezone, retry, side effects) + mục "Ví dụ gọi API" tùy chọn.
+- Cập nhật `CLAUDE.md` và `AGENTS.md` — pointer cho 11+ slash commands.
+- Cập nhật `HUONG-DAN-SU-DUNG.md` — bảng tham chiếu nhanh + ma trận tính năng mới.
+
 ## [Unreleased]
 
 ### Added
