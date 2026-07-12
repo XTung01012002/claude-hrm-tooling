@@ -32,4 +32,5 @@
 - Sinh docs FE: `docs/ai/prompts/generate-api-docs.md` · Sinh test: `docs/ai/prompts/generate-test.md`
 - Sinh feature (`/scaffold-feature`): `docs/ai/prompts/generate-feature.md` · Tự sinh git commit (`/commit-message`): `docs/ai/prompts/commit-message.md` · Tìm reuse (`/find-reuse`): `docs/ai/prompts/find-reuse.md`.
 - Bẻ việc / bóc task / estimate (`/task-breakdown`): `docs/ai/prompts/task-breakdown.md` — chia theo Technical Boundary, ma trận Size×Effort→Point (trần 2 Point/task), reuse-first, không cộng trùng.
+- **Mới:** Triển khai yêu cầu (`/implement`): `docs/ai/prompts/implement-requirement.md` · Adversarial verify (`/verify`): `docs/ai/prompts/adversarial-verify.md` · Review diff + commit (`/diff-review`): `docs/ai/prompts/diff-review.md` · Sinh docs code BE (`/code-docs`): `docs/ai/prompts/generate-code-docs.md`.
 - Docs FE viết vào `api-docs/<Module>/<Endpoint>.md` (contract-only) — KHÁC `docs/` (logic nội bộ BE).

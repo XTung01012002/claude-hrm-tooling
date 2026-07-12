@@ -22,12 +22,16 @@ File này chỉ tóm tắt; chi tiết + lý do nằm ở đó.
 - Lệnh chuẩn cho AI: `make -f Makefile.ai ai-lint FILE=source/...`, `make -f Makefile.ai ai-pint FILE=source/...`, `make -f Makefile.ai ai-test TEST=tests/Unit/XTest.php`, `make -f Makefile.ai ai-artisan CMD="route:list"`, `make -f Makefile.ai ai-php CMD="-v"`.
 
 ## Slash commands & Skills (Backed by `docs/ai/prompts/*.md`)
-- `/review` → review diff theo checklist dự án (`docs/ai/prompts/review.md`).
+- `/review` → review diff theo checklist, verdict PASS/FAIL (`docs/ai/prompts/review.md`).
 - `/review-vs-plan` → reviewer độc lập đối chiếu implementation với Plan cuối, thay đổi ngoài Plan và chất lượng code (`docs/ai/prompts/review-vs-plan.md`).
-- `/api-docs` → sinh docs FE contract-only vào `api-docs/<Module>/<Endpoint>.md` (`docs/ai/prompts/generate-api-docs.md`).
-- `/scaffold-test` → sinh unit test Mockery vào `source/tests/Unit/` (`docs/ai/prompts/generate-test.md`).
+- `/implement` → triển khai yêu cầu theo quy trình 10 bước — phân tích trước, code sau (`docs/ai/prompts/implement-requirement.md`).
+- `/scaffold-test` → sinh unit test Mockery, test matrix 14 nhóm (`docs/ai/prompts/generate-test.md`).
 - `/scaffold-feature` → sinh template 3 file feature theo chuẩn (`docs/ai/prompts/generate-feature.md`).
-- `/commit-message` → sinh nội dung git commit (`docs/ai/prompts/commit-message.md`).
+- `/api-docs` → sinh docs FE contract-only + lưu ý cho FE (`docs/ai/prompts/generate-api-docs.md`).
+- `/code-docs` → sinh tài liệu code nội bộ cho BE (`docs/ai/prompts/generate-code-docs.md`).
+- `/diff-review` → review diff → verdict → branch + commit + PR (`docs/ai/prompts/diff-review.md`).
+- `/commit-message` → sinh nội dung git commit (nhanh, không review) (`docs/ai/prompts/commit-message.md`).
+- `/verify` → adversarial verification — kiểm định cuối, chỉ kiểm không sửa (`docs/ai/prompts/adversarial-verify.md`).
 - `/refactor` → review/refactor code giữ behavior, có mức độ 🔴🟡🟢 (`docs/ai/prompts/refactor.md`).
 - `/find-reuse` → tìm logic/interface có thể tái sử dụng trước khi tạo mới (`docs/ai/prompts/find-reuse.md`).
 - `/task-breakdown` → bẻ việc / bóc task / estimate theo Size×Effort→Point, mỗi task ≤ 2 Point (`docs/ai/prompts/task-breakdown.md`).

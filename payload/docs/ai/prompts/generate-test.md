@@ -42,6 +42,29 @@ Mặc định đặt test tại `source/tests/Unit/<ClassName>Test.php`, theo co
   - Qua Laravel facade: chỉ dùng `Event::fake()`/`Queue::fake()` khi test boot ứng dụng bằng `Tests\TestCase`; không ép facade fake vào pure unit test không boot app.
   - Assert không dispatch ở nhánh lỗi nếu code yêu cầu như vậy.
 
+### Test Matrix 14 nhóm (BẮT BUỘC duyệt)
+
+Với mỗi nhóm dưới đây: xác nhận có áp dụng cho class đang test không. Nếu có → viết test. Nếu không → ghi "N/A — lý do".
+
+| # | Nhóm | Mô tả | Ví dụ |
+|---|---|---|---|
+| 1 | **Happy path** | Dữ liệu hợp lệ, hành vi bình thường | validate pass → repo trả đúng → assert return đúng shape |
+| 2 | **Boundary** | Giá trị biên: 0, 1, max, min, rỗng, null | Mảng rỗng, chuỗi empty, ID = 0 |
+| 3 | **Invalid input** | Sai type, sai format, thiếu field | validate ném ValidationException |
+| 4 | **Authorization** | Không có quyền, sai company, sai owner | company_id không match → BusinessException 403 |
+| 5 | **State transition** | Trạng thái cũ/mới không hợp lệ | Đổi status từ COMPLETED → PENDING |
+| 6 | **Duplicate / Idempotent** | Cùng request gửi lại | Friend request đã tồn tại |
+| 7 | **Out-of-order** | Event cũ đến sau event mới | Webhook timestamp cũ hơn record |
+| 8 | **Concurrency** | Hai request xử lý cùng bản ghi | lockForUpdate / race condition |
+| 9 | **Transaction** | Lỗi giữa chừng phải rollback | Exception sau khi đã ghi 1 bảng |
+| 10 | **External API** | Timeout, 4xx, 5xx, response thiếu field | Zalo API trả 500 → BusinessException |
+| 11 | **Database** | Record tồn tại / không tồn tại / soft-deleted | findContact trả null → 404 |
+| 12 | **Compatibility** | Dữ liệu cũ / format legacy | Field nullable trong DB cũ |
+| 13 | **Side effects** | Event, notification, queue, logging | shouldReceive('dispatch')->once() |
+| 14 | **Time** | Timezone, quá hạn, thời điểm bằng nhau | Carbon::setTestNow(); deadline hết hạn |
+
+> Nhóm nào không áp dụng thì bỏ qua — không ép viết test vô nghĩa.
+
 ## Khởi tạo input và assert output
 
 - Khởi tạo instance thật của Command/Query/DTO trong phần Arrange bằng đúng constructor hoặc factory thật (`fromRequest()` chỉ khi test chính factory đó). Dùng giá trị hợp lý và đúng enum/type; không thay bằng mảng generic.

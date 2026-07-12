@@ -84,6 +84,30 @@ Chỉ liệt kê mã lỗi khi có tín hiệu code tương ứng:
 - **422**: endpoint chạy validation implementation hoặc có exception mã 422 trong phạm vi trace.
 - **500**: chỉ khi có nhánh exception được map rõ thành 500; không thêm lỗi hệ thống chung theo phỏng đoán.
 
+## Lưu ý cho Frontend (BẮT BUỘC)
+
+Sau mục "Lỗi", **luôn thêm mục "Lưu ý cho Frontend"** nếu có bất kỳ điểm nào áp dụng:
+
+```markdown
+## Lưu ý cho Frontend
+- **Field nullable**: <liệt kê field có thể trả `null` — đọc từ Migration/Model `$casts`/Mapper>
+- **Field có thể thiếu**: <field không luôn có mặt trong response — vd chỉ xuất hiện khi điều kiện X>
+- **Enum values**: <field> có thể là: `VALUE_1` | `VALUE_2` | ... (đọc từ Enum class thật)
+- **Idempotency**: <gọi lại API này có an toàn không? Kết quả có thay đổi?>
+- **Reload sau khi gọi**: <FE có cần reload/refetch data sau khi gọi API này không?>
+- **Response = final hay queued**: <data trả về là trạng thái cuối cùng hay chỉ là "đã tiếp nhận"?>
+- **Timezone**: <thời gian trả về là UTC hay local? Format nào?>
+- **Retry**: <error nào nên retry (5xx, timeout)? Error nào KHÔNG nên retry (4xx)?>
+- **Hiển thị lỗi**: <message lỗi nào hiển thị trực tiếp cho user? Cái nào cần FE tự xử lý?>
+- **Side effects**: <API này có trigger thêm gì không: notification, event WS, email, queue job?>
+```
+
+> Chỉ liệt kê mục nào **thật sự áp dụng** cho endpoint cụ thể (đọc code xác nhận). Không liệt kê mục generic "cho có".
+
+## Ví dụ gọi API (TÙY CHỌN — thêm khi logic phức tạp)
+
+Nếu endpoint có logic khó hiểu hoặc flow nhiều bước, thêm ví dụ curl + hướng dẫn xử lý phía FE. Endpoint CRUD đơn giản không cần.
+
 ## Văn phong (ngắn gọn, đúng ý, không thừa)
 
 - Bảng = giải nghĩa field; JSON mẫu = minh họa shape. **Không lặp** mô tả field ở nhiều nơi.

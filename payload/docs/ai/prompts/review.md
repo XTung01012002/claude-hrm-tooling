@@ -89,3 +89,20 @@ Tổng kết: <Cao> cao, <Trung bình> trung bình, <Thấp> thấp/cần xác n
 - Nếu một mức không có finding, ghi `Không có`.
 - Nếu không có finding ngoài phạm vi, có thể bỏ hẳn mục đó và ghi `Ngoài phạm vi: 0` trong tổng kết.
 - Với diff lớn trải từ 3 file trở lên, có thể nhóm thêm theo file bên trong từng mức độ; vẫn giữ `[file:line]` trên từng finding.
+
+**Bổ sung bắt buộc sau tổng kết:**
+
+```markdown
+## Missing tests
+- <test cần viết thêm — nhánh/edge case chưa được phủ>
+
+## Questions / Assumptions
+- <câu hỏi cho author — giả định chưa rõ, behavior chưa xác nhận>
+
+## Verdict: ✅ PASS | ⚠️ PASS WITH CONCERNS | ❌ REQUEST CHANGES
+```
+
+### Quy tắc verdict
+- **✅ PASS** — không có 🔴, ít 🟡, test đủ.
+- **⚠️ PASS WITH CONCERNS** — không có 🔴, nhưng có 🟡 đáng lưu ý hoặc thiếu test.
+- **❌ REQUEST CHANGES** — có ≥1 🔴 hoặc thiếu test cho logic quan trọng.
