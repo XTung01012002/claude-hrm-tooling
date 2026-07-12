@@ -207,7 +207,7 @@ test_block_host_tools_rejects_make_cli_vars() {
   status=$?
   set -e
 
-  [ "$status" -eq 2 ] && grep -q 'Không truyền biến Make command-line' "$OUT"
+  [ "$status" -eq 2 ] && grep -q 'allow-list' "$OUT"
 }
 
 test_block_host_tools_allows_env_prefix() {
@@ -247,7 +247,7 @@ test_block_host_tools_rejects_makeflags_ai_run_prefix() {
   status=$?
   set -e
 
-  [ "$status" -eq 2 ] && [ ! -e "$marker" ] && grep -q 'MAKEFLAGS' "$OUT"
+  [ "$status" -eq 2 ] && [ ! -e "$marker" ] && grep -q 'allow-list' "$OUT"
 }
 
 test_block_host_tools_rejects_makefiles_prefix() {
@@ -262,7 +262,7 @@ test_block_host_tools_rejects_makefiles_prefix() {
   status=$?
   set -e
 
-  [ "$status" -eq 2 ] && [ ! -e "$marker" ] && grep -q 'MAKEFILES' "$OUT"
+  [ "$status" -eq 2 ] && [ ! -e "$marker" ] && grep -q 'allow-list' "$OUT"
 }
 
 test_block_host_tools_rejects_env_makeflags_ai_run() {
@@ -274,7 +274,7 @@ test_block_host_tools_rejects_env_makeflags_ai_run() {
   status=$?
   set -e
 
-  [ "$status" -eq 2 ] && [ ! -e "$marker" ] && grep -q 'MAKEFLAGS' "$OUT"
+  [ "$status" -eq 2 ] && [ ! -e "$marker" ] && grep -q 'allow-list' "$OUT"
 }
 
 test_block_host_tools_rejects_assignment_after_make() {
@@ -286,7 +286,7 @@ test_block_host_tools_rejects_assignment_after_make() {
   status=$?
   set -e
 
-  [ "$status" -eq 2 ] && [ ! -e "$marker" ] && grep -q 'AI_RUN' "$OUT"
+  [ "$status" -eq 2 ] && [ ! -e "$marker" ] && grep -q 'allow-list' "$OUT"
 }
 
 test_block_host_tools_rejects_unexpected_env_prefix() {
@@ -297,7 +297,61 @@ test_block_host_tools_rejects_unexpected_env_prefix() {
   status=$?
   set -e
 
-  [ "$status" -eq 2 ] && grep -q 'FOO' "$OUT"
+  [ "$status" -eq 2 ] && grep -q 'allow-list' "$OUT"
+}
+
+test_block_host_tools_rejects_make_eval() {
+  local marker="$TMP_DIR/guard-eval-pwned"
+  local status
+
+  set +e
+  run_guard "make -f Makefile.ai --eval='\$(shell touch $marker)' ai-about"
+  status=$?
+  set -e
+
+  [ "$status" -eq 2 ] && [ ! -e "$marker" ] && grep -q 'allow-list' "$OUT"
+}
+
+test_block_host_tools_rejects_extra_makefile() {
+  local marker="$TMP_DIR/guard-extra-makefile-pwned"
+  local evil="$TMP_DIR/evil-extra.mk"
+  local status
+
+  printf '$(shell touch %s)\n' "$marker" > "$evil"
+
+  set +e
+  run_guard "make -f Makefile.ai -f $evil ai-about"
+  status=$?
+  set -e
+
+  [ "$status" -eq 2 ] && [ ! -e "$marker" ] && grep -q 'allow-list' "$OUT"
+}
+
+test_block_host_tools_rejects_file_option_eval() {
+  local marker="$TMP_DIR/guard-file-option-eval-pwned"
+  local status
+
+  set +e
+  run_guard "make --file=Makefile.ai --eval='\$(shell touch $marker)' ai-about"
+  status=$?
+  set -e
+
+  [ "$status" -eq 2 ] && [ ! -e "$marker" ] && grep -q 'allow-list' "$OUT"
+}
+
+test_block_host_tools_rejects_env_dash_s() {
+  local marker="$TMP_DIR/guard-env-s-pwned"
+  local evil="$TMP_DIR/evil-env-s.mk"
+  local status
+
+  printf '$(shell touch %s)\n' "$marker" > "$evil"
+
+  set +e
+  run_guard "env -S 'MAKEFILES=$evil make -f Makefile.ai ai-about'"
+  status=$?
+  set -e
+
+  [ "$status" -eq 2 ] && [ ! -e "$marker" ] && grep -q 'allow-list' "$OUT"
 }
 
 test_block_host_tools_rejects_host_php_in_docker_substitution() {
@@ -306,6 +360,30 @@ test_block_host_tools_rejects_host_php_in_docker_substitution() {
 
   set +e
   run_guard "docker compose exec -T hrm-api echo \"\$(php -r 'file_put_contents(\"$marker\", \"x\");')\""
+  status=$?
+  set -e
+
+  [ "$status" -eq 2 ] && [ ! -e "$marker" ]
+}
+
+test_block_host_tools_rejects_host_php_in_process_substitution() {
+  local marker="$TMP_DIR/process-substitution-pwned"
+  local status
+
+  set +e
+  run_guard "docker compose exec -T hrm-api cat <(php -r 'file_put_contents(\"$marker\", \"1\");')"
+  status=$?
+  set -e
+
+  [ "$status" -eq 2 ] && [ ! -e "$marker" ]
+}
+
+test_block_host_tools_rejects_host_php_in_output_process_substitution() {
+  local marker="$TMP_DIR/output-process-substitution-pwned"
+  local status
+
+  set +e
+  run_guard "docker compose exec -T hrm-api sh >(php -r 'file_put_contents(\"$marker\", \"1\");')"
   status=$?
   set -e
 
@@ -431,6 +509,76 @@ test_strict_fails_outside_git_worktree() {
   [ "$status" -eq 2 ] && grep -q 'Git working tree' "$OUT"
 }
 
+test_strict_fails_when_git_index_is_corrupt() {
+  local project="$TMP_DIR/corrupt-index-project"
+  local status
+
+  mkdir -p "$project/.claude/hooks" "$project/source/src"
+  cp "$ROOT/payload/.claude/hooks/run-related-tests.sh" "$project/.claude/hooks/run-related-tests.sh"
+  chmod +x "$project/.claude/hooks/run-related-tests.sh"
+  printf '<?php\n' > "$project/source/src/Foo.php"
+  git -C "$project" init -q
+  printf 'not a git index\n' > "$project/.git/index"
+
+  set +e
+  (
+    cd "$project"
+    AI_TEST_MODE=strict .claude/hooks/run-related-tests.sh <<< '{}'
+  ) >"$OUT" 2>&1
+  status=$?
+  set -e
+
+  [ "$status" -eq 2 ] && grep -q 'Git' "$OUT"
+}
+
+test_strict_flags_deleted_php_file() {
+  local project="$TMP_DIR/deleted-php-project"
+  local status
+
+  mkdir -p "$project/.claude/hooks" "$project/source/src"
+  cp "$ROOT/payload/.claude/hooks/run-related-tests.sh" "$project/.claude/hooks/run-related-tests.sh"
+  chmod +x "$project/.claude/hooks/run-related-tests.sh"
+  printf '<?php\n' > "$project/source/src/DeleteMe.php"
+  git -C "$project" init -q
+  git -C "$project" -c user.email=test@example.com -c user.name=Test add source/src/DeleteMe.php
+  git -C "$project" -c user.email=test@example.com -c user.name=Test commit -q -m init
+  rm "$project/source/src/DeleteMe.php"
+
+  set +e
+  (
+    cd "$project"
+    AI_TEST_MODE=strict .claude/hooks/run-related-tests.sh <<< '{}'
+  ) >"$OUT" 2>&1
+  status=$?
+  set -e
+
+  [ "$status" -eq 2 ] && grep -q 'DeleteMe.php' "$OUT"
+}
+
+test_strict_flags_renamed_php_file() {
+  local project="$TMP_DIR/renamed-php-project"
+  local status
+
+  mkdir -p "$project/.claude/hooks" "$project/source/src"
+  cp "$ROOT/payload/.claude/hooks/run-related-tests.sh" "$project/.claude/hooks/run-related-tests.sh"
+  chmod +x "$project/.claude/hooks/run-related-tests.sh"
+  printf '<?php\n' > "$project/source/src/OldName.php"
+  git -C "$project" init -q
+  git -C "$project" -c user.email=test@example.com -c user.name=Test add source/src/OldName.php
+  git -C "$project" -c user.email=test@example.com -c user.name=Test commit -q -m init
+  mv "$project/source/src/OldName.php" "$project/source/src/NewName.php"
+
+  set +e
+  (
+    cd "$project"
+    AI_TEST_MODE=strict .claude/hooks/run-related-tests.sh <<< '{}'
+  ) >"$OUT" 2>&1
+  status=$?
+  set -e
+
+  [ "$status" -eq 2 ] && grep -q 'OldName.php' "$OUT" && grep -q 'NewName.php' "$OUT"
+}
+
 test_install_creates_precise_backup_and_excludes_bak_suffixes() {
   local target="$TMP_DIR/install-target"
   local home="$TMP_DIR/home"
@@ -474,14 +622,23 @@ run_test "block-host-tools rejects MAKEFILES prefix" test_block_host_tools_rejec
 run_test "block-host-tools rejects env MAKEFLAGS/AI_RUN" test_block_host_tools_rejects_env_makeflags_ai_run
 run_test "block-host-tools rejects assignment after make" test_block_host_tools_rejects_assignment_after_make
 run_test "block-host-tools rejects unexpected env prefix" test_block_host_tools_rejects_unexpected_env_prefix
+run_test "block-host-tools rejects make --eval" test_block_host_tools_rejects_make_eval
+run_test "block-host-tools rejects extra -f makefile" test_block_host_tools_rejects_extra_makefile
+run_test "block-host-tools rejects --file plus --eval" test_block_host_tools_rejects_file_option_eval
+run_test "block-host-tools rejects env -S" test_block_host_tools_rejects_env_dash_s
 run_test "block-host-tools rejects host PHP in docker substitution" test_block_host_tools_rejects_host_php_in_docker_substitution
 run_test "block-host-tools rejects host PHP in make substitution" test_block_host_tools_rejects_host_php_in_make_substitution
+run_test "block-host-tools rejects host PHP in process substitution" test_block_host_tools_rejects_host_php_in_process_substitution
+run_test "block-host-tools rejects host PHP in output process substitution" test_block_host_tools_rejects_host_php_in_output_process_substitution
 run_test "sync rejects invalid mode" test_sync_rejects_invalid_mode_before_apply
 run_test "sync dry-run includes .claude/scripts" test_sync_dry_run_includes_claude_scripts
 run_test "strict test hook fails closed without Makefile" test_strict_related_tests_fail_closed_without_makefile
 run_test "strict test hook rejects invalid AI_TEST_MODE" test_strict_rejects_invalid_ai_test_mode
 run_test "strict test hook fails when source is missing" test_strict_fails_when_source_directory_missing
 run_test "strict test hook fails outside Git worktree" test_strict_fails_outside_git_worktree
+run_test "strict test hook fails when Git index is corrupt" test_strict_fails_when_git_index_is_corrupt
+run_test "strict test hook flags deleted PHP file" test_strict_flags_deleted_php_file
+run_test "strict test hook flags renamed PHP file" test_strict_flags_renamed_php_file
 run_test "install backup/exclude/scripts are safe" test_install_creates_precise_backup_and_excludes_bak_suffixes
 
 if [ "$FAILURES" -ne 0 ]; then

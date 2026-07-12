@@ -28,58 +28,30 @@ contains_makefile_ai() {
   printf '%s' "$COMMAND" | grep -qE '(^|[[:space:];&|()]|/)(g?make)([[:space:]]|$|[^;&|()]*[[:space:]])[^;&|()]*Makefile\.ai'
 }
 
-is_assignment_word() {
-  printf '%s' "$1" | grep -qE '^[A-Za-z_][A-Za-z0-9_]*='
-}
-
-assignment_name() {
-  printf '%s' "${1%%=*}"
-}
-
-is_allowed_make_env_assignment() {
-  case "$1" in
-    AI_FILE | AI_TEST | AI_ROUTE_PATH) return 0 ;;
-    *) return 1 ;;
+is_safe_makefile_ai_command() {
+  case "$COMMAND" in
+    *$'\n'* | *'..'*) return 1 ;;
   esac
+
+  file_path='source/[A-Za-z0-9_./-]+\.php'
+  test_path='tests/[A-Za-z0-9_./-]+Test\.php'
+  route_path='[A-Za-z0-9_./:{}-]+'
+
+  printf '%s' "$COMMAND" | grep -Eq '^make[[:space:]]+-f[[:space:]]+Makefile\.ai[[:space:]]+(ai-php-version|ai-migrate-status|ai-about|ai-event-list|ai-route-list)$' ||
+    printf '%s' "$COMMAND" | grep -Eq '^AI_FILE='"$file_path"'[[:space:]]+make[[:space:]]+-f[[:space:]]+Makefile\.ai[[:space:]]+(ai-lint|ai-pint|ai-pint-check|ai-check)$' ||
+    printf '%s' "$COMMAND" | grep -Eq '^AI_TEST='"$test_path"'[[:space:]]+make[[:space:]]+-f[[:space:]]+Makefile\.ai[[:space:]]+ai-test$' ||
+    printf '%s' "$COMMAND" | grep -Eq '^AI_ROUTE_PATH='"$route_path"'[[:space:]]+make[[:space:]]+-f[[:space:]]+Makefile\.ai[[:space:]]+ai-route-list$'
 }
 
-is_dangerous_make_env_assignment() {
-  case "$1" in
-    MAKEFLAGS | MFLAGS | GNUMAKEFLAGS | MAKEFILES | AI_RUN | SHELL | BASH_ENV | ENV | LD_PRELOAD | DYLD_*) return 0 ;;
-    *) return 1 ;;
-  esac
-}
-
-# GNU Make expands command-line variables before recipes run. This means
-# `make -f Makefile.ai ai-test TEST='$(shell ...)'` can execute during parsing,
-# before Makefile.ai or wrapper validation can reject it.
+# GNU Make can execute host commands while parsing options, environment and
+# extra makefiles (`--eval`, `-f`, `MAKEFILES`, `env -S`, command-line vars).
+# If Makefile.ai is involved, allow only exact known-safe command shapes.
 if contains_makefile_ai; then
-  seen_make=0
-  for token in $COMMAND; do
-    case "$token" in
-      make | */make | gmake | */gmake) seen_make=1 ;;
-    esac
-
-    if is_assignment_word "$token"; then
-      var_name="$(assignment_name "$token")"
-      if is_dangerous_make_env_assignment "$var_name"; then
-        echo "🚨 LỖI (PreToolUse Guard): Biến môi trường nguy hiểm cho Makefile.ai bị chặn: $var_name" >&2
-        exit 2
-      fi
-
-      if [ "$seen_make" = "1" ]; then
-        echo "🚨 LỖI (PreToolUse Guard): Không truyền biến Make command-line cho Makefile.ai: $var_name" >&2
-        echo "✅ Dùng env-prefix trước make, chỉ với AI_FILE, AI_TEST hoặc AI_ROUTE_PATH." >&2
-        exit 2
-      fi
-
-      if ! is_allowed_make_env_assignment "$var_name"; then
-        echo "🚨 LỖI (PreToolUse Guard): Env-prefix không được phép cho Makefile.ai: $var_name" >&2
-        echo "✅ Chỉ cho phép AI_FILE, AI_TEST hoặc AI_ROUTE_PATH trước make." >&2
-        exit 2
-      fi
-    fi
-  done
+  if ! is_safe_makefile_ai_command; then
+    echo "🚨 LỖI (PreToolUse Guard): Command Makefile.ai không khớp allow-list an toàn." >&2
+    echo "✅ Dùng đúng một shape, ví dụ: \`make -f Makefile.ai ai-about\`, \`AI_FILE=source/path/File.php make -f Makefile.ai ai-lint\`, hoặc \`AI_TEST=tests/Unit/XTest.php make -f Makefile.ai ai-test\`." >&2
+    exit 2
+  fi
 fi
 
 # --- Patterns ---
@@ -106,7 +78,8 @@ check_dangerous() {
 check_dangerous_substitution() {
   # Command substitution executes on the host before docker/make receives argv.
   printf '%s' "$1" | grep -qE '\$\([^)]*'"$TOOL_WORD" ||
-    printf '%s' "$1" | grep -qE '`[^`]*'"$TOOL_WORD"
+    printf '%s' "$1" | grep -qE '`[^`]*'"$TOOL_WORD" ||
+    printf '%s' "$1" | grep -qE '[<>]\([^)]*'"$TOOL_WORD"
 }
 
 strip_safe_contexts() {

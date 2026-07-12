@@ -45,6 +45,10 @@ cd "$SRC" || unverified "không thể truy cập source directory: $SRC"
 git -C "$REPO_ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1 ||
   unverified "không xác định được Git working tree"
 
+CHANGED_FILES_TMP="$(mktemp "${TMPDIR:-/tmp}/run-related-tests.changed.XXXXXX")"
+GIT_ERRORS_TMP="$(mktemp "${TMPDIR:-/tmp}/run-related-tests.git-errors.XXXXXX")"
+trap 'rm -f "$CHANGED_FILES_TMP" "$GIT_ERRORS_TMP"' EXIT
+
 has_make_target() {
   [ -f "$REPO_ROOT/Makefile.ai" ]
 }
@@ -53,12 +57,47 @@ container_up() {
   ( cd "$REPO_ROOT/docker/local" 2>/dev/null && docker compose exec -T hrm-api true >/dev/null 2>&1 )
 }
 
+append_diff_paths() {
+  mode_arg="$1"
+  output=""
+
+  if [ -n "$mode_arg" ]; then
+    output="$(git -C "$REPO_ROOT" diff "$mode_arg" --name-status -M --diff-filter=ACMRD 2>>"$GIT_ERRORS_TMP")" ||
+      unverified "Không thể thu thập danh sách file thay đổi từ Git: $(cat "$GIT_ERRORS_TMP")"
+  else
+    output="$(git -C "$REPO_ROOT" diff --name-status -M --diff-filter=ACMRD 2>>"$GIT_ERRORS_TMP")" ||
+      unverified "Không thể thu thập danh sách file thay đổi từ Git: $(cat "$GIT_ERRORS_TMP")"
+  fi
+
+  printf '%s\n' "$output" | awk -F '\t' '
+    NF >= 2 {
+      if ($1 ~ /^[RC]/) {
+        print $2
+        if (NF >= 3) print $3
+      } else {
+        print $2
+      }
+    }
+  ' >> "$CHANGED_FILES_TMP"
+}
+
+collect_changed_once() {
+  : > "$CHANGED_FILES_TMP"
+  : > "$GIT_ERRORS_TMP"
+
+  append_diff_paths ""
+  append_diff_paths "--cached"
+
+  git -C "$REPO_ROOT" ls-files --others --exclude-standard >> "$CHANGED_FILES_TMP" 2>>"$GIT_ERRORS_TMP" ||
+    unverified "Không thể thu thập danh sách file thay đổi từ Git: $(cat "$GIT_ERRORS_TMP")"
+}
+
 # Danh sách file PHP đã đổi (unstaged + staged + untracked)
 collect_changed() {
-  git -C "$REPO_ROOT" diff --name-only --diff-filter=ACM 2>/dev/null
-  git -C "$REPO_ROOT" diff --name-only --diff-filter=ACM --cached 2>/dev/null
-  git -C "$REPO_ROOT" ls-files --others --exclude-standard 2>/dev/null
+  cat "$CHANGED_FILES_TMP"
 }
+
+collect_changed_once
 
 # Tương thích bash 3.2 (macOS) — không dùng associative array.
 # Gom ứng viên test (đường dẫn tương đối source/), mỗi dòng 1 file.

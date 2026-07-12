@@ -16,10 +16,13 @@ All notable changes to this project will be documented in this file.
 - Remove all Makefile.ai Bash auto-allow rules until Make env override hardening is proven safe.
 - Hardcode Makefile.ai wrapper calls and pin `SHELL`/`.SHELLFLAGS` so `MAKEFLAGS=-e AI_RUN=...` cannot swap the runner.
 - Block dangerous Make environment prefixes (`MAKEFLAGS`, `MFLAGS`, `GNUMAKEFLAGS`, `MAKEFILES`, `AI_RUN`, `SHELL`, `BASH_ENV`, `ENV`, `LD_PRELOAD`, `DYLD_*`) and host PHP tooling inside command substitution.
+- Replace Makefile.ai guard parsing with exact command allow-list, blocking `--eval`, extra `-f`/`--file`, `env -S`, `-C`, pipes, redirects, and extra shell structure.
+- Block host PHP tooling inside process substitution (`<(` and `>(`) before Docker/Make contexts are considered safe.
 
 ### Fixed
 - Strict test hook now fails closed when related tests are found but Docker, Makefile.ai, or PHPUnit execution is unavailable.
 - Strict test hook now rejects invalid `AI_TEST_MODE`, missing `source/`, and non-Git directories instead of passing silently.
+- Strict test hook now fails closed when Git changed-file collection fails, and includes deleted/renamed PHP files in detection.
 - `sync-from-project.sh` rejects invalid mode typos instead of treating them as apply mode.
 - `sync-from-project.sh` now mirrors `.claude/scripts` with the rest of the Claude tooling.
 - `sync-from-project.sh --dry-run` no longer fails just because the tooling repo has uncommitted changes.
