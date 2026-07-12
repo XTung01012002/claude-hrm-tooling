@@ -1,15 +1,36 @@
-# payload/Makefile.ai — ai-* targets chạy THẬT trong container hrm-api (version: chạy ai-php để verify).
+# payload/Makefile.ai — ai-* targets chạy THẬT trong container hrm-api (version: chạy ai-php-version để verify).
 # Gọi: make -f Makefile.ai ai-lint FILE=source/src/.../Foo.php
 #      make -f Makefile.ai ai-test TEST=tests/Unit/FooTest.php
 # Giữ ngoài git team qua .git/info/exclude (install.sh thêm dòng "Makefile.ai").
 EXEC := cd docker/local && docker compose exec -T hrm-api
-.PHONY: ai-lint ai-pint ai-check ai-test ai-artisan ai-php
+.PHONY: ai-lint ai-pint ai-pint-check ai-check ai-test ai-artisan ai-php ai-php-version ai-route-list
+
 # strip "source/" để ra path tương đối /var/www/html trong container
 CFILE = $(patsubst source/%,%,$(FILE))
 
-ai-lint:    ; @$(EXEC) php -l "$(CFILE)"
-ai-pint:    ; @$(EXEC) vendor/bin/pint "$(CFILE)"
+# --- Deny-list: chặn lệnh nguy hiểm chạy tự động ---
+DENY_ARTISAN := migrate:fresh migrate:reset migrate:rollback db:wipe db:seed tinker queue:clear cache:clear config:clear key:generate schedule:run horizon:terminate
+DENY_PHP     := -r eval
+
+define check_artisan_deny
+$(foreach d,$(DENY_ARTISAN),$(if $(findstring $(d),$(CMD)),$(error ❌ BLOCKED: lệnh "$(d)" không được phép chạy tự động. Chạy tay trong container nếu cần.)))
+endef
+
+define check_php_deny
+$(foreach d,$(DENY_PHP),$(if $(findstring $(d),$(CMD)),$(error ❌ BLOCKED: "$(d)" không được phép. Dùng ai-php-version hoặc ai-lint thay thế.)))
+endef
+
+# --- Core targets ---
+ai-lint:       ; @$(EXEC) php -l "$(CFILE)"
+ai-pint:       ; @$(EXEC) vendor/bin/pint "$(CFILE)"
+ai-pint-check: ; @$(EXEC) vendor/bin/pint --test "$(CFILE)"
 ai-check: ai-lint ai-pint
-ai-test:    ; @$(EXEC) vendor/bin/phpunit --do-not-cache-result $(TEST)
-ai-artisan: ; @$(EXEC) php artisan $(CMD)
-ai-php:     ; @$(EXEC) php $(CMD)
+ai-test:       ; @$(EXEC) vendor/bin/phpunit --do-not-cache-result $(TEST)
+
+# --- Guarded targets (deny-list validated) ---
+ai-artisan:    ; @$(call check_artisan_deny) $(EXEC) php artisan $(CMD)
+ai-php:        ; @$(call check_php_deny) $(EXEC) php $(CMD)
+
+# --- Convenience targets (no arguments needed) ---
+ai-php-version: ; @$(EXEC) php -v
+ai-route-list:  ; @$(EXEC) php artisan route:list $(ARGS)

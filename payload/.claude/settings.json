@@ -7,8 +7,15 @@
       "Edit(source/tests/**)",
       "Edit(source/config/**)",
       "Edit(source/database/**)",
-      "Bash(docker compose exec -T hrm-api *)",
-      "Bash(make -f Makefile.ai *)"
+      "Bash(make -f Makefile.ai ai-lint *)",
+      "Bash(make -f Makefile.ai ai-pint *)",
+      "Bash(make -f Makefile.ai ai-pint-check *)",
+      "Bash(make -f Makefile.ai ai-check *)",
+      "Bash(make -f Makefile.ai ai-test *)",
+      "Bash(make -f Makefile.ai ai-artisan *)",
+      "Bash(make -f Makefile.ai ai-php *)",
+      "Bash(make -f Makefile.ai ai-php-version)",
+      "Bash(make -f Makefile.ai ai-route-list *)"
     ]
   }
 }

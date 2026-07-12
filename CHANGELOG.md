@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.6.0] - 2026-07-12
+
+### Security
+- **Makefile.ai deny-list**: `ai-artisan` và `ai-php` giờ chặn lệnh nguy hiểm (migrate:fresh, migrate:reset, db:wipe, tinker, queue:clear, cache:clear, key:generate, schedule:run, horizon:terminate, php -r, eval). AI phải chạy tay trong container nếu thật sự cần.
+- **settings.json thu hẹp**: bỏ wildcard `docker compose exec -T hrm-api *`, mọi lệnh phải đi qua `Makefile.ai` (đã có deny-list).
+
+### Fixed
+- **Hook test silent skip**: `run-related-tests.sh` giờ báo `⚠️ UNVERIFIED` kèm danh sách file khi không tìm thấy paired test, thay vì im lặng exit 0. AI không còn nhầm lẫn "không có test" với "test pass".
+- **Pint error swallowed**: `php-lint.sh` giờ cảnh báo khi Pint fail và re-lint sau format để bắt syntax thay đổi.
+- **sync-from-project.sh phá hủy**: giờ mặc định `--dry-run`, validate source (kiểm tra `source/composer.json`), chặn nếu tooling repo dirty. Phải truyền `--apply` rõ ràng.
+- **install.sh backup ghi đè**: backup giờ có timestamp (`file.bak.20260712-213000`), không ghi đè backup cũ.
+- **Codex prompts xung đột**: giờ có namespace `hrm-` prefix (`~/.codex/prompts/hrm-review.md`).
+
+### Changed
+- **`/implement` mode selection**: thêm 3 mode (STRICT mặc định / AUTO cho bug nhỏ / PLAN_ONLY). Bug fix rõ ràng không cần thêm vòng approve.
+- **`/scaffold-test` test strategy profile**: thêm bước chọn Profile A (pure logic, 5 nhóm) / B (persistence, 9 nhóm) / C (event-driven, 14 nhóm) trước khi duyệt matrix. Mapper/DTO không phải duyệt 14 nhóm nữa.
+- **`/verify` falsification**: đổi "assume at least one bug" thành "attempt to falsify; PASS is valid". Thêm Counterexample, Invariant, Evidence, Confidence cho mỗi finding.
+- **`review.md` render fix**: sửa placeholder `<Cao>` bị GitHub render như HTML → dùng backtick.
+- **Makefile.ai**: thêm `ai-pint-check` (--test), `ai-php-version`, `ai-route-list` target cụ thể.
+
 ## [1.5.0] - 2026-07-12
 
 ### Added
