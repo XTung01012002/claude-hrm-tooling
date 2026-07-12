@@ -74,24 +74,29 @@ Kiểm tra test file tương ứng (nếu có):
 ```markdown
 ## Adversarial Verification Report
 
-### Verdict: ✅ PASS | ⚠️ PASS WITH CONCERNS | ❌ FAIL
+### Verdict: ✅ PASS | ⚠️ PASS_WITH_CONCERNS | ❌ REQUEST_CHANGES | 🚫 BLOCKED_INSUFFICIENT_CONTEXT
 
 ### Expected behavior (reconstructed independently)
 <mô tả behavior bạn expect từ yêu cầu, KHÔNG từ code>
 
 ### Findings
 
-#### 🔴 Blocker (phải sửa trước khi merge)
+#### 🔴 BLOCKER (phải sửa trước khi merge)
 - **[file.php:line]** <vấn đề>
-  - **Counterexample**: <input/state cụ thể gây lỗi>
-  - **Invariant bị vi phạm**: <rule nào bị phá>
-  - **Evidence**: <code path đã trace>
-  - **Confidence**: High | Medium | Low
+  - Severity: BLOCKER
+  - Confidence: High | Medium | Low
+  - Current behavior: <mô tả behavior sai>
+  - Counterexample: <input/state cụ thể gây lỗi>
+  - Invariant bị vi phạm: <rule nào bị phá>
+  - Impact: <tác động production>
+  - Evidence: <code path đã trace>
+  - Minimal fix: <cách sửa>
+  - Required test: <test cần thêm>
 
-#### 🟡 Important (nên sửa)
+#### 🟡 IMPORTANT (nên sửa)
 - ...
 
-#### 🟢 Suggestion (cải thiện)
+#### 🔵 SUGGESTION (cải thiện)
 - ...
 
 #### ❓ Questions / Assumptions chưa xác minh
@@ -103,7 +108,7 @@ Kiểm tra test file tương ứng (nếu có):
 - Missing tests: <liệt kê>
 
 ### Summary
-- Tổng: <n> Blocker, <n> Important, <n> Suggestion
+- Tổng: `N` BLOCKER, `N` IMPORTANT, `N` SUGGESTION, `N` QUESTION
 - Kết luận 1 dòng
 ```
 

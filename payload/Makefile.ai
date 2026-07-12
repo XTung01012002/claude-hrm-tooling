@@ -1,36 +1,60 @@
-# payload/Makefile.ai — ai-* targets chạy THẬT trong container hrm-api (version: chạy ai-php-version để verify).
+# payload/Makefile.ai — ai-* targets chạy THẬT trong container hrm-api.
 # Gọi: make -f Makefile.ai ai-lint FILE=source/src/.../Foo.php
 #      make -f Makefile.ai ai-test TEST=tests/Unit/FooTest.php
 # Giữ ngoài git team qua .git/info/exclude (install.sh thêm dòng "Makefile.ai").
 EXEC := cd docker/local && docker compose exec -T hrm-api
-.PHONY: ai-lint ai-pint ai-pint-check ai-check ai-test ai-artisan ai-php ai-php-version ai-route-list
+.PHONY: ai-lint ai-pint ai-pint-check ai-check ai-test ai-artisan-safe ai-artisan-unsafe ai-php-version ai-route-list
 
 # strip "source/" để ra path tương đối /var/www/html trong container
 CFILE = $(patsubst source/%,%,$(FILE))
 
-# --- Deny-list: chặn lệnh nguy hiểm chạy tự động ---
-DENY_ARTISAN := migrate:fresh migrate:reset migrate:rollback db:wipe db:seed tinker queue:clear cache:clear config:clear key:generate schedule:run horizon:terminate
-DENY_PHP     := -r eval
+# ============================================================
+# ALLOW-LIST cho ai-artisan-safe
+# Chỉ các lệnh READ-ONLY hoặc sinh code mới (không ghi DB, không xóa cache).
+# Lệnh ngoài danh sách → phải chạy tay hoặc dùng ai-artisan-unsafe.
+# ============================================================
+ALLOWED_ARTISAN := \
+  about \
+  list \
+  help \
+  route:list \
+  event:list \
+  schedule:list \
+  config:show \
+  env \
+  test \
+  migrate:status \
+  model:show \
+  queue:monitor \
+  schedule:test \
+  make:test \
+  make:command \
+  make:class \
+  make:enum \
+  make:exception \
+  make:interface \
+  make:request
 
-define check_artisan_deny
-$(foreach d,$(DENY_ARTISAN),$(if $(findstring $(d),$(CMD)),$(error ❌ BLOCKED: lệnh "$(d)" không được phép chạy tự động. Chạy tay trong container nếu cần.)))
+define check_artisan_allow
+$(if $(filter $(firstword $(CMD)),$(ALLOWED_ARTISAN)),,$(error ❌ BLOCKED: "$(firstword $(CMD))" không nằm trong allow-list. Chạy tay trong container: docker compose exec -T hrm-api php artisan $(CMD)))
 endef
 
-define check_php_deny
-$(foreach d,$(DENY_PHP),$(if $(findstring $(d),$(CMD)),$(error ❌ BLOCKED: "$(d)" không được phép. Dùng ai-php-version hoặc ai-lint thay thế.)))
-endef
-
-# --- Core targets ---
+# --- Core targets (AI tự động chạy) ---
 ai-lint:       ; @$(EXEC) php -l "$(CFILE)"
 ai-pint:       ; @$(EXEC) vendor/bin/pint "$(CFILE)"
 ai-pint-check: ; @$(EXEC) vendor/bin/pint --test "$(CFILE)"
 ai-check: ai-lint ai-pint
 ai-test:       ; @$(EXEC) vendor/bin/phpunit --do-not-cache-result $(TEST)
 
-# --- Guarded targets (deny-list validated) ---
-ai-artisan:    ; @$(call check_artisan_deny) $(EXEC) php artisan $(CMD)
-ai-php:        ; @$(call check_php_deny) $(EXEC) php $(CMD)
+# --- Artisan SAFE: chỉ allow-list, AI gọi tự do ---
+ai-artisan-safe: ; @$(call check_artisan_allow) $(EXEC) php artisan $(CMD)
 
-# --- Convenience targets (no arguments needed) ---
+# --- Artisan UNSAFE: KHÔNG cho AI gọi tự động ---
+# Target này tồn tại để người dùng chạy tay khi cần.
+# settings.json KHÔNG cấp quyền cho target này.
+# Ví dụ: make -f Makefile.ai ai-artisan-unsafe CMD="migrate"
+ai-artisan-unsafe: ; @echo "⚠️ Lệnh unsafe — chạy trong container:" && echo "  docker compose exec -T hrm-api php artisan $(CMD)" && $(EXEC) php artisan $(CMD)
+
+# --- Convenience targets (không cần argument) ---
 ai-php-version: ; @$(EXEC) php -v
 ai-route-list:  ; @$(EXEC) php artisan route:list $(ARGS)

@@ -20,7 +20,7 @@
 - Chạy thật trong **Docker container `hrm-api`**; version pin gần nhất xem `PROJECT-CONVENTIONS` §12 và kiểm bằng `ai-php`. Host PHP chỉ để tham khảo, **không dùng làm chuẩn verify**.
 - Không chạy trực tiếp `php`, `composer`, `php artisan`, `vendor/bin/phpunit`, `vendor/bin/pint` trên host khi kiểm tra code.
 - Lệnh chuẩn cho AI sau khi sửa PHP: `make -f Makefile.ai ai-pint FILE=source/...` + `make -f Makefile.ai ai-lint FILE=source/...`; nếu có test tương ứng thì `make -f Makefile.ai ai-test TEST=tests/Unit/<X>Test.php`.
-- Artisan chạy qua Docker: `make -f Makefile.ai ai-artisan CMD="route:list"`; kiểm PHP version: `make -f Makefile.ai ai-php CMD="-v"`.
+- Artisan (read-only, allow-list): `make -f Makefile.ai ai-artisan-safe CMD="route:list"`; kiểm PHP version: `make -f Makefile.ai ai-php-version`. Lệnh ghi dữ liệu (migrate, seed, cache:clear...) phải chạy tay.
 
 ## Tự kiểm tra sau khi sửa code (BẮT BUỘC — môi trường không có hook)
 - Sau khi sửa/sinh `.php`: **TỰ chạy** `make -f Makefile.ai ai-lint FILE=...` (+ `ai-pint`, + `ai-test TEST=...` nếu có test) — coi như bước bắt buộc, không bỏ.
