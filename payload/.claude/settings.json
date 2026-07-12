@@ -1,5 +1,11 @@
 {
   "permissions": {
+    "deny": [
+      "Bash(php *)",
+      "Bash(composer *)",
+      "Bash(vendor/bin/phpunit *)",
+      "Bash(vendor/bin/pint *)"
+    ],
     "allow": [
       "Edit(source/src/**)",
       "Edit(source/app/**)",

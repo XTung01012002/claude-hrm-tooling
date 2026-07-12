@@ -6,12 +6,40 @@
 # Usage: ./install.sh /duong-dan/toi/hrm-api
 set -euo pipefail
 
-TARGET="${1:-}"
+TARGET=""
+FORCE_OVERWRITE_TRACKED=0
+
+for arg in "$@"; do
+  case "$arg" in
+    --force-overwrite-tracked)
+      FORCE_OVERWRITE_TRACKED=1
+      ;;
+    *)
+      if [ -z "$TARGET" ]; then
+        TARGET="$arg"
+      else
+        echo "Lỗi: Quá nhiều đối số." >&2
+        exit 1
+      fi
+      ;;
+  esac
+done
+
 if [ -z "$TARGET" ]; then
-  echo "Usage: ./install.sh /duong-dan/toi/project" >&2
+  echo "Usage: ./install.sh [--force-overwrite-tracked] /duong-dan/toi/project" >&2
   exit 1
 fi
-TARGET="$(cd "$TARGET" 2>/dev/null && pwd)" || { echo "Khong tim thay thu muc: $1" >&2; exit 1; }
+TARGET="$(cd "$TARGET" 2>/dev/null && pwd)" || { echo "Khong tim thay thu muc: $TARGET" >&2; exit 1; }
+
+# Kiểm tra thư mục đích có phải là dự án HRM API hợp lệ không
+if [ "$FORCE_OVERWRITE_TRACKED" != "1" ]; then
+  if [ ! -f "$TARGET/source/composer.json" ] && [ ! -d "$TARGET/docker/local" ]; then
+    echo "❌ LỖI: Thư mục đích ($TARGET) có vẻ không phải là dự án HRM API hợp lệ." >&2
+    echo "  (Không tìm thấy source/composer.json hoặc docker/local/)" >&2
+    echo "  Dùng --force-overwrite-tracked nếu thật sự muốn cài đặt vào đây." >&2
+    exit 1
+  fi
+fi
 
 # PAT Guard preflight check
 SETTINGS_FILE="$TARGET/.claude/settings.local.json"
@@ -53,12 +81,21 @@ if [ -f "$SETTINGS_FILE" ]; then
 fi
 
 echo "Cai tooling vao: $TARGET"
+TRACKED_CONFLICTS=0
 while IFS= read -r -d '' f; do
   rel="${f#./}"
   # Ngừng ship api-docs/ trong payload vì nó thuộc quyền sở hữu của repo project
   if [[ "$rel" == "api-docs"* ]]; then
     continue
   fi
+
+  # Chặn overwrite file đã được track bởi Git của team (trừ khi có --force-overwrite-tracked)
+  if [ "$FORCE_OVERWRITE_TRACKED" != "1" ] && git -C "$TARGET" ls-files --error-unmatch "$rel" >/dev/null 2>&1; then
+      echo "❌ CẢNH BÁO: Managed path đang được project track: $rel" >&2
+      TRACKED_CONFLICTS=$((TRACKED_CONFLICTS + 1))
+      continue
+  fi
+
   dest="$TARGET/$rel"
   mkdir -p "$(dirname "$dest")"
   
@@ -72,6 +109,12 @@ while IFS= read -r -d '' f; do
   cp "$SRC/$rel" "$dest"
   echo "  + $rel"
 done < <(cd "$SRC" && find . -type f -print0)
+
+if [ "$TRACKED_CONFLICTS" -gt 0 ]; then
+  echo "❌ Đã chặn $TRACKED_CONFLICTS file vì đang được project track." >&2
+  echo "Dùng --force-overwrite-tracked nếu thật sự muốn thay thế các file này." >&2
+  exit 2
+fi
 
 chmod +x "$TARGET/.claude/hooks/"*.sh 2>/dev/null || true
 chmod +x "$TARGET/.claude/scripts/"*.sh 2>/dev/null || true
@@ -139,6 +182,8 @@ if [ -f "$SNIPPET" ]; then
 fi
 
 if [ -f "$(dirname "$0")/VERSION" ]; then
+  mkdir -p "$TARGET/.claude"
+  cp "$(dirname "$0")/VERSION" "$TARGET/.claude/tooling-version"
   VER="$(cat "$(dirname "$0")/VERSION")"
   if [ "$MERGE_OK" = "1" ]; then
     echo "Cài đặt thành công tooling phiên bản: $VER"

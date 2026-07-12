@@ -85,6 +85,21 @@ collect_changed_once() {
   : > "$CHANGED_FILES_TMP"
   : > "$GIT_ERRORS_TMP"
 
+  # Ưu tiên đọc từ touched-files được ghi bởi PostToolUse hook
+  TOUCHED_FILES="$REPO_ROOT/.claude/tmp/touched-files"
+  if [ -s "$TOUCHED_FILES" ]; then
+    cat "$TOUCHED_FILES" | sort -u >> "$CHANGED_FILES_TMP"
+    rm -f "$TOUCHED_FILES" # Dọn dẹp sau khi đọc
+    return
+  fi
+
+  # Fallback: nếu không có touched files, dùng git diff nhưng chuyển sang advisory 
+  # để tránh chặn phiên làm việc do file dirty của user từ trước.
+  if [ "$TEST_MODE" = "strict" ]; then
+    echo "[run-related-tests hook] ⚠️ Không có file touched. Fallback đọc từ git diff (chuyển sang advisory mode)." >&2
+    TEST_MODE="advisory"
+  fi
+
   append_diff_paths ""
   append_diff_paths "--cached"
 

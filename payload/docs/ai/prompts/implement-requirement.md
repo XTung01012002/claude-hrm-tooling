@@ -139,7 +139,7 @@ Nếu có giả định cần xác nhận (bước 5) làm đổi behavior/schem
 - Reuse interface/repo có sẵn (bước 1), KHÔNG tạo mới nếu đã có.
 
 ### Bước 9: Viết/chỉnh test
-- Theo prompt `docs/ai/prompts/generate-test.md` (test matrix 14 nhóm).
+- Theo `Test Strategy Profile A/B/C` trong `docs/ai/prompts/generate-test.md`; chỉ duyệt các nhóm thuộc profile đã chọn và bổ sung nhóm ngoài profile nếu code thật cho thấy có liên quan.
 - Tối thiểu: happy path + mỗi nhánh BusinessException + edge cases từ bước 4.
 
 ### Bước 10: Chạy Quality Gate

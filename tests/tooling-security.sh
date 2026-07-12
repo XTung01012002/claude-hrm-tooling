@@ -25,6 +25,8 @@ run_test() {
     pass "$name"
   else
     fail "$name"
+    echo "Output was:"
+    cat "$OUT"
   fi
 }
 
@@ -428,16 +430,19 @@ test_sync_dry_run_includes_claude_scripts() {
   grep -q '\.claude/scripts' "$OUT"
 }
 
-test_strict_related_tests_fail_closed_without_makefile() {
-  local project="$TMP_DIR/hook-project"
+test_strict_fails_closed_without_makefile() {
+  local project="$TMP_DIR/no-makefile-project"
   local status
 
   mkdir -p "$project/.claude/hooks" "$project/source/src" "$project/source/tests/Unit"
   cp "$ROOT/payload/.claude/hooks/run-related-tests.sh" "$project/.claude/hooks/run-related-tests.sh"
   chmod +x "$project/.claude/hooks/run-related-tests.sh"
+  git -C "$project" init -q
+
   printf '<?php\n' > "$project/source/src/Foo.php"
   printf '<?php\n' > "$project/source/tests/Unit/FooTest.php"
-  git -C "$project" init -q
+  mkdir -p "$project/.claude/tmp"
+  printf 'source/src/Foo.php\n' > "$project/.claude/tmp/touched-files"
 
   set +e
   (
@@ -447,7 +452,7 @@ test_strict_related_tests_fail_closed_without_makefile() {
   status=$?
   set -e
 
-  [ "$status" -eq 2 ] && grep -q 'UNVERIFIED' "$OUT"
+  [ "$status" -eq 2 ] && grep -q 'Makefile.ai không tồn tại' "$OUT"
 }
 
 test_strict_rejects_invalid_ai_test_mode() {
@@ -528,7 +533,7 @@ test_strict_fails_when_git_index_is_corrupt() {
   status=$?
   set -e
 
-  [ "$status" -eq 2 ] && grep -q 'Git' "$OUT"
+  [ "$status" -eq 0 ] && grep -q 'Git' "$OUT" && grep -q 'advisory mode' "$OUT"
 }
 
 test_strict_flags_deleted_php_file() {
@@ -552,7 +557,7 @@ test_strict_flags_deleted_php_file() {
   status=$?
   set -e
 
-  [ "$status" -eq 2 ] && grep -q 'DeleteMe.php' "$OUT"
+  [ "$status" -eq 0 ] && grep -q 'DeleteMe.php' "$OUT" && grep -q 'advisory mode' "$OUT"
 }
 
 test_strict_flags_renamed_php_file() {
@@ -576,15 +581,16 @@ test_strict_flags_renamed_php_file() {
   status=$?
   set -e
 
-  [ "$status" -eq 2 ] && grep -q 'OldName.php' "$OUT" && grep -q 'NewName.php' "$OUT"
+  [ "$status" -eq 0 ] && grep -q 'OldName.php' "$OUT" && grep -q 'NewName.php' "$OUT" && grep -q 'advisory mode' "$OUT"
 }
 
 test_install_creates_precise_backup_and_excludes_bak_suffixes() {
   local target="$TMP_DIR/install-target"
   local home="$TMP_DIR/home"
-  local exclude
+  local status
 
-  mkdir -p "$target" "$home"
+  mkdir -p "$target/source" "$target/docker/local" "$home"
+  printf '{}\n' > "$target/source/composer.json"
   git -C "$target" init -q
   printf 'old\n' > "$target/CLAUDE.md"
 
@@ -595,6 +601,97 @@ test_install_creates_precise_backup_and_excludes_bak_suffixes() {
     grep -Fxq '*.bak.*' "$target/$exclude" &&
     [ -x "$target/.claude/scripts/ai-docker.sh" ] &&
     grep -q 'CLAUDE.md.bak.' "$OUT"
+}
+
+test_install_rejects_overwriting_tracked_files() {
+  local target="$TMP_DIR/install-tracked-target"
+  local home="$TMP_DIR/home"
+  local status
+
+  mkdir -p "$target/source" "$target/docker/local" "$home"
+  printf '{}\n' > "$target/source/composer.json"
+  git -C "$target" init -q
+  mkdir -p "$target/.claude/hooks"
+  printf 'tracked\n' > "$target/.claude/hooks/block-host-tools.sh"
+  git -C "$target" add .claude/hooks/block-host-tools.sh
+  git -C "$target" -c user.email=test@example.com -c user.name=Test commit -m "track"
+
+  set +e
+  HOME="$home" "$ROOT/install.sh" "$target" >"$OUT" 2>&1
+  status=$?
+  set -e
+
+  [ "$status" -eq 2 ] && grep -q 'được project track' "$OUT"
+}
+
+test_install_allows_overwriting_tracked_files_with_force() {
+  local target="$TMP_DIR/install-force-target"
+  local home="$TMP_DIR/home"
+  local status
+
+  mkdir -p "$target/source" "$target/docker/local" "$home"
+  printf '{}\n' > "$target/source/composer.json"
+  git -C "$target" init -q
+  mkdir -p "$target/.claude/hooks"
+  printf 'tracked\n' > "$target/.claude/hooks/block-host-tools.sh"
+  git -C "$target" add .claude/hooks/block-host-tools.sh
+  git -C "$target" -c user.email=test@example.com -c user.name=Test commit -m "track"
+
+  set +e
+  HOME="$home" "$ROOT/install.sh" --force-overwrite-tracked "$target" >"$OUT" 2>&1
+  status=$?
+  set -e
+
+  grep -q 'block-host-tools.sh' "$OUT" && ! grep -q 'được project track' "$OUT"
+}
+
+test_guard_warns_when_jq_is_missing() {
+  local status
+
+  set +e
+  # Build JSON directly without jq
+  printf '{"tool_input":{"command":"make -f Makefile.ai ai-about"}}\n' | PATH="" /bin/bash "$ROOT/payload/.claude/hooks/block-host-tools.sh" >"$OUT" 2>&1
+  status=$?
+  set -e
+
+  [ "$status" -eq 0 ] && grep -q 'Không tìm thấy '"'"'jq'"'"'' "$OUT"
+}
+
+test_strict_hook_prioritizes_touched_files() {
+  local project="$TMP_DIR/touched-project"
+  local status
+
+  mkdir -p "$project/.claude/hooks" "$project/source/src" "$project/source/tests/Unit" "$project/docker/local"
+  cp "$ROOT/payload/.claude/hooks/run-related-tests.sh" "$project/.claude/hooks/run-related-tests.sh"
+  cp "$ROOT/payload/Makefile.ai" "$project/Makefile.ai"
+  chmod +x "$project/.claude/hooks/run-related-tests.sh"
+  printf '<?php\n' > "$project/source/src/Foo.php"
+  printf '<?php\n' > "$project/source/src/Bar.php"
+  printf '<?php\n' > "$project/source/tests/Unit/FooTest.php"
+  git -C "$project" init -q
+
+  mkdir -p "$project/.claude/tmp"
+  printf 'source/src/Foo.php\n' > "$project/.claude/tmp/touched-files"
+
+  set +e
+  (
+    cd "$project"
+    mkdir -p bin
+    cat > bin/make <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+    cat > bin/docker <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+    chmod +x bin/make bin/docker
+    PATH="$project/bin:$PATH" AI_TEST_MODE=strict .claude/hooks/run-related-tests.sh <<< '{}'
+  ) >"$OUT" 2>&1
+  status=$?
+  set -e
+
+  [ "$status" -eq 0 ] && ! grep -q 'Bar.php' "$OUT"
 }
 
 fixture="$TMP_DIR/project"
@@ -632,14 +729,18 @@ run_test "block-host-tools rejects host PHP in process substitution" test_block_
 run_test "block-host-tools rejects host PHP in output process substitution" test_block_host_tools_rejects_host_php_in_output_process_substitution
 run_test "sync rejects invalid mode" test_sync_rejects_invalid_mode_before_apply
 run_test "sync dry-run includes .claude/scripts" test_sync_dry_run_includes_claude_scripts
-run_test "strict test hook fails closed without Makefile" test_strict_related_tests_fail_closed_without_makefile
+run_test "strict test hook fails closed without Makefile" test_strict_fails_closed_without_makefile
 run_test "strict test hook rejects invalid AI_TEST_MODE" test_strict_rejects_invalid_ai_test_mode
 run_test "strict test hook fails when source is missing" test_strict_fails_when_source_directory_missing
 run_test "strict test hook fails outside Git worktree" test_strict_fails_outside_git_worktree
 run_test "strict test hook fails when Git index is corrupt" test_strict_fails_when_git_index_is_corrupt
 run_test "strict test hook flags deleted PHP file" test_strict_flags_deleted_php_file
 run_test "strict test hook flags renamed PHP file" test_strict_flags_renamed_php_file
+run_test "strict test hook prioritizes touched files" test_strict_hook_prioritizes_touched_files
 run_test "install backup/exclude/scripts are safe" test_install_creates_precise_backup_and_excludes_bak_suffixes
+run_test "install rejects overwriting tracked files" test_install_rejects_overwriting_tracked_files
+run_test "install allows overwriting tracked files with force" test_install_allows_overwriting_tracked_files_with_force
+run_test "guard warns when jq is missing" test_guard_warns_when_jq_is_missing
 
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s test(s) failed\n' "$FAILURES" >&2

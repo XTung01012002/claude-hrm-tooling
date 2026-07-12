@@ -71,6 +71,7 @@ Không chắc chắn thì không được gắn **BLOCKER**. Nêu chính xác đ
 
 - **[file.php:line]** <vấn đề>
   - Severity: BLOCKER
+  - Merge blocking: Yes | No
   - Confidence: High | Medium | Low
   - Current behavior: <mô tả behavior sai>
   - Counterexample: <input/state cụ thể gây lỗi>
@@ -117,8 +118,8 @@ Tổng kết: `N` blocker, `N` important, `N` suggestion, `N` question. Ngoài p
 ```
 
 ### Quy tắc verdict
-- **✅ PASS** — không có BLOCKER, không có IMPORTANT bắt buộc sửa, test đủ.
-- **⚠️ PASS_WITH_CONCERNS** — không có BLOCKER, nhưng có IMPORTANT hoặc thiếu test.
-- **❌ REQUEST_CHANGES** — có ≥1 BLOCKER hoặc IMPORTANT bắt buộc sửa trước merge.
+- **✅ PASS** — không có BLOCKER, không có IMPORTANT bắt buộc sửa (Merge blocking: Yes), test đủ.
+- **⚠️ PASS_WITH_CONCERNS** — không có BLOCKER, nhưng có IMPORTANT (Merge blocking: No) hoặc thiếu test.
+- **❌ REQUEST_CHANGES** — có ≥1 BLOCKER hoặc IMPORTANT bắt buộc sửa (Merge blocking: Yes) trước merge.
 - **🚫 BLOCKED_INSUFFICIENT_CONTEXT** — thiếu code/test/context để kết luận.
 

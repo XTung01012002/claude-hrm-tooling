@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [1.7.0] - 2026-07-13
 
 ### Added
 - Thêm reviewer độc lập `/review-vs-plan` cho Claude Code, Codex và Antigravity: đối chiếu từng mục Plan cuối với code thật, tách thay đổi ngoài Plan khỏi finding chất lượng và kiểm tra bằng chứng test.

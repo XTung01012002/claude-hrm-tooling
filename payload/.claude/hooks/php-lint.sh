@@ -31,6 +31,13 @@ esac
 [ -f "$ABS" ] || exit 0
 REL="${ABS#$REPO_ROOT/}"
 
+# Ghi nhận file đã chạm vào file tạm của session
+TOUCHED_FILES="$REPO_ROOT/.claude/tmp/touched-files"
+mkdir -p "$(dirname "$TOUCHED_FILES")"
+case "$REL" in
+  source/*) echo "$REL" >> "$TOUCHED_FILES" ;;
+esac
+
 has_make_target() {
   [ -f "$REPO_ROOT/Makefile.ai" ]
 }

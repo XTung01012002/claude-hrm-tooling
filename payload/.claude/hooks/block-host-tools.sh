@@ -11,15 +11,18 @@
 #   4. Cho phép nếu lệnh nguy hiểm nằm trong docker/make context.
 set -uo pipefail
 
-command -v jq >/dev/null 2>&1 || exit 0
+command -v jq >/dev/null 2>&1 || {
+  echo "⚠️ [PreToolUse Guard] Không tìm thấy 'jq', guard fail-open. Khuyến nghị cài đặt jq và sử dụng permissions.deny trong settings.json để đảm bảo an toàn." >&2
+  exit 0
+}
 
 INPUT="$(cat)"
 COMMAND="$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)"
 [ -z "$COMMAND" ] && exit 0
 
 block_host_tool() {
-  echo "🚨 LỖI (PreToolUse Guard): Phát hiện PHP/Composer/Pint/PHPUnit chạy trên môi trường host!" >&2
-  echo "❌ Việc này bị NGHIÊM CẤM — host chạy PHP version khác với container (8.2.31), gây báo xanh giả." >&2
+  echo "🚨 LỖI (PreToolUse Guard): Guard phát hiện PHP/Composer/Pint/PHPUnit có thể đang chạy trên môi trường host!" >&2
+  echo "❌ Tránh thực thi trên host — host chạy PHP version khác với container (8.2.31), gây báo xanh giả." >&2
   echo "✅ 👉 Hãy sử dụng: \`AI_FILE=source/path/File.php make -f Makefile.ai ai-lint\`, \`AI_TEST=tests/Unit/XTest.php make -f Makefile.ai ai-test\` hoặc \`make -f Makefile.ai ai-php-version\`." >&2
   exit 2
 }
