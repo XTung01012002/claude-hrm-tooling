@@ -13,12 +13,17 @@ All notable changes to this project will be documented in this file.
 - Disable raw `ai-artisan-safe CMD=...` and `ai-artisan-unsafe CMD=...` targets.
 - Move Makefile.ai file/test/path inputs to env-prefix form (`AI_FILE=... make ...`, `AI_TEST=... make ...`) to avoid GNU Make command-line variable expansion.
 - Block old Makefile.ai command-line variables (`FILE=`, `TEST=`, `CMD=`, `ARGS=`, `ROUTE_PATH=`) in the Bash PreToolUse guard.
+- Remove all Makefile.ai Bash auto-allow rules until Make env override hardening is proven safe.
+- Hardcode Makefile.ai wrapper calls and pin `SHELL`/`.SHELLFLAGS` so `MAKEFLAGS=-e AI_RUN=...` cannot swap the runner.
+- Block dangerous Make environment prefixes (`MAKEFLAGS`, `MFLAGS`, `GNUMAKEFLAGS`, `MAKEFILES`, `AI_RUN`, `SHELL`, `BASH_ENV`, `ENV`, `LD_PRELOAD`, `DYLD_*`) and host PHP tooling inside command substitution.
 
 ### Fixed
 - Strict test hook now fails closed when related tests are found but Docker, Makefile.ai, or PHPUnit execution is unavailable.
+- Strict test hook now rejects invalid `AI_TEST_MODE`, missing `source/`, and non-Git directories instead of passing silently.
 - `sync-from-project.sh` rejects invalid mode typos instead of treating them as apply mode.
 - `sync-from-project.sh` now mirrors `.claude/scripts` with the rest of the Claude tooling.
 - `sync-from-project.sh --dry-run` no longer fails just because the tooling repo has uncommitted changes.
+- `sync-from-project.sh --apply` copies through staging and fails if a managed source path is missing, avoiding stale payload paths and delete-before-copy loss.
 - `install.sh` validates `jq`/JSON before copying, logs the exact backup filename, excludes `*.bak.*`, and marks installed scripts executable.
 - `/implement AUTO` no longer contradicts itself by always stopping after the plan.
 - API docs and convention prompts now use fixed route-list targets instead of the removed raw artisan command.

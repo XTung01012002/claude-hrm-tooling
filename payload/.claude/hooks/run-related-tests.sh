@@ -4,15 +4,22 @@
 # Format KHÔNG check ở đây: PostToolUse (php-lint.sh) đã auto-format từng file AI sửa rồi.
 #
 # AI_TEST_MODE (env):
-#   advisory  — không tìm thấy test → cảnh báo + exit 0 (dùng khi đang Edit/Write, /implement)
-#   strict    — không tìm thấy test → cảnh báo + exit 2 (dùng trước /verify, /diff-review, commit)
-#   Mặc định: strict (chất lượng trước commit quan trọng hơn).
+#   strict    — UNVERIFIED/test fail → exit 2 (mặc định cho Stop hook)
+#   advisory  — UNVERIFIED → cảnh báo + exit 0; chỉ dùng khi user chủ động set env cho cả phiên
+# Stop hook không tự đổi mode theo slash command; đừng giả định /implement tự chuyển advisory.
 #
 # v1.6: AI_TEST_MODE advisory/strict; v1.4: bỏ host fallback.
 # Exit 0 = OK; exit 2 = có lỗi hoặc UNVERIFIED (strict), báo ngược cho AI.
 set -uo pipefail
 
 TEST_MODE="${AI_TEST_MODE:-strict}"
+case "$TEST_MODE" in
+  strict | advisory) ;;
+  *)
+    echo "[run-related-tests hook] Invalid AI_TEST_MODE: $TEST_MODE (expected strict|advisory)" >&2
+    exit 2
+    ;;
+esac
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SRC="$REPO_ROOT/source"
@@ -23,8 +30,20 @@ if command -v jq >/dev/null 2>&1; then
   fi
 fi
 
-[ -d "$SRC" ] || exit 0
-cd "$SRC" || exit 0
+unverified() {
+  echo "[run-related-tests hook] ⚠️ UNVERIFIED — $1" >&2
+  if [ "$TEST_MODE" = "strict" ]; then
+    echo "[mode=strict] Chặn: không thể xác minh test liên quan." >&2
+    exit 2
+  fi
+  exit 0
+}
+
+[ -d "$SRC" ] || unverified "source directory không tồn tại: $SRC"
+cd "$SRC" || unverified "không thể truy cập source directory: $SRC"
+
+git -C "$REPO_ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1 ||
+  unverified "không xác định được Git working tree"
 
 has_make_target() {
   [ -f "$REPO_ROOT/Makefile.ai" ]
@@ -98,15 +117,7 @@ fi
 
 # Kiểm tra Docker — KHÔNG fallback sang host
 if ! has_make_target; then
-  {
-    echo "[run-related-tests hook] ⚠️ UNVERIFIED — Makefile.ai không tồn tại."
-    echo "Cần cài tooling hoặc chạy test thủ công trong container."
-    if [ "$TEST_MODE" = "strict" ]; then
-      echo "[mode=strict] Chặn: không thể xác minh test liên quan."
-    fi
-  } >&2
-  [ "$TEST_MODE" = "strict" ] && exit 2
-  exit 0
+  unverified "Makefile.ai không tồn tại. Cần cài tooling hoặc chạy test thủ công trong container."
 fi
 
 if ! container_up; then

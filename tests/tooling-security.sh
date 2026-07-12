@@ -78,6 +78,13 @@ run_make_env() {
   )
 }
 
+run_guard() {
+  local command="$1"
+
+  printf '{"tool_input":{"command":%s}}\n' "$(printf '%s' "$command" | jq -Rsa .)" |
+    bash "$ROOT/payload/.claude/hooks/block-host-tools.sh" >"$OUT" 2>&1
+}
+
 rejects_test_payload() {
   local payload="$1"
   local marker="$2"
@@ -189,31 +196,132 @@ test_rejects_route_path_injection() {
 
 test_settings_has_no_make_wildcard_auto_allow() {
   ! jq -r '.permissions.allow[]' "$ROOT/payload/.claude/settings.json" |
-    grep -Eq '^Bash\(make -f Makefile\.ai .*\*\)$'
+    grep -Eq '^Bash\(.*make -f Makefile\.ai'
 }
 
 test_block_host_tools_rejects_make_cli_vars() {
   local status
 
   set +e
-  printf '%s\n' '{"tool_input":{"command":"make -f Makefile.ai ai-test TEST=tests/Unit/FooTest.php"}}' |
-    bash "$ROOT/payload/.claude/hooks/block-host-tools.sh" >"$OUT" 2>&1
+  run_guard 'make -f Makefile.ai ai-test TEST=tests/Unit/FooTest.php'
   status=$?
   set -e
 
-  [ "$status" -eq 2 ] && grep -q 'Không truyền FILE/TEST' "$OUT"
+  [ "$status" -eq 2 ] && grep -q 'Không truyền biến Make command-line' "$OUT"
 }
 
 test_block_host_tools_allows_env_prefix() {
   local status
 
   set +e
-  printf '%s\n' '{"tool_input":{"command":"AI_TEST=tests/Unit/FooTest.php make -f Makefile.ai ai-test"}}' |
-    bash "$ROOT/payload/.claude/hooks/block-host-tools.sh" >"$OUT" 2>&1
+  run_guard 'AI_TEST=tests/Unit/FooTest.php make -f Makefile.ai ai-test'
   status=$?
   set -e
 
   [ "$status" -eq 0 ]
+}
+
+test_make_env_override_cannot_replace_runner() {
+  local fixture="$TMP_DIR/project"
+  local marker="$TMP_DIR/ai-run-pwned"
+
+  : > "$TMP_DIR/docker.log"
+  (
+    cd "$fixture"
+    PATH="$TMP_DIR/bin:$PATH" \
+      FAKE_DOCKER_LOG="$TMP_DIR/docker.log" \
+      MAKEFLAGS=-e \
+      AI_RUN="sh -c 'touch $marker'" \
+      make -f Makefile.ai ai-php-version >/dev/null
+  )
+
+  [ ! -e "$marker" ] && grep -Fxq 'php' "$TMP_DIR/docker.log"
+}
+
+test_block_host_tools_rejects_makeflags_ai_run_prefix() {
+  local marker="$TMP_DIR/guard-ai-run-pwned"
+  local status
+
+  set +e
+  run_guard "MAKEFLAGS=-e AI_RUN='sh -c \"touch $marker\"' make -f Makefile.ai ai-php-version"
+  status=$?
+  set -e
+
+  [ "$status" -eq 2 ] && [ ! -e "$marker" ] && grep -q 'MAKEFLAGS' "$OUT"
+}
+
+test_block_host_tools_rejects_makefiles_prefix() {
+  local marker="$TMP_DIR/guard-makefiles-pwned"
+  local evil="$TMP_DIR/evil.mk"
+  local status
+
+  printf '$(shell touch %s)\n' "$marker" > "$evil"
+
+  set +e
+  run_guard "MAKEFILES=$evil make -f Makefile.ai ai-about"
+  status=$?
+  set -e
+
+  [ "$status" -eq 2 ] && [ ! -e "$marker" ] && grep -q 'MAKEFILES' "$OUT"
+}
+
+test_block_host_tools_rejects_env_makeflags_ai_run() {
+  local marker="$TMP_DIR/guard-env-ai-run-pwned"
+  local status
+
+  set +e
+  run_guard "env MAKEFLAGS=-e AI_RUN='sh -c \"touch $marker\"' make -f Makefile.ai ai-route-list"
+  status=$?
+  set -e
+
+  [ "$status" -eq 2 ] && [ ! -e "$marker" ] && grep -q 'MAKEFLAGS' "$OUT"
+}
+
+test_block_host_tools_rejects_assignment_after_make() {
+  local marker="$TMP_DIR/guard-after-make-pwned"
+  local status
+
+  set +e
+  run_guard "make -f Makefile.ai ai-about AI_RUN='sh -c \"touch $marker\"'"
+  status=$?
+  set -e
+
+  [ "$status" -eq 2 ] && [ ! -e "$marker" ] && grep -q 'AI_RUN' "$OUT"
+}
+
+test_block_host_tools_rejects_unexpected_env_prefix() {
+  local status
+
+  set +e
+  run_guard 'FOO=bar make -f Makefile.ai ai-about'
+  status=$?
+  set -e
+
+  [ "$status" -eq 2 ] && grep -q 'FOO' "$OUT"
+}
+
+test_block_host_tools_rejects_host_php_in_docker_substitution() {
+  local marker="$TMP_DIR/docker-substitution-pwned"
+  local status
+
+  set +e
+  run_guard "docker compose exec -T hrm-api echo \"\$(php -r 'file_put_contents(\"$marker\", \"x\");')\""
+  status=$?
+  set -e
+
+  [ "$status" -eq 2 ] && [ ! -e "$marker" ]
+}
+
+test_block_host_tools_rejects_host_php_in_make_substitution() {
+  local marker="$TMP_DIR/make-substitution-pwned"
+  local status
+
+  set +e
+  run_guard "make -f Makefile.ai ai-about \"\$(php -r 'file_put_contents(\"$marker\", \"x\");')\""
+  status=$?
+  set -e
+
+  [ "$status" -eq 2 ] && [ ! -e "$marker" ]
 }
 
 test_sync_rejects_invalid_mode_before_apply() {
@@ -264,6 +372,65 @@ test_strict_related_tests_fail_closed_without_makefile() {
   [ "$status" -eq 2 ] && grep -q 'UNVERIFIED' "$OUT"
 }
 
+test_strict_rejects_invalid_ai_test_mode() {
+  local project="$TMP_DIR/invalid-mode-project"
+  local status
+
+  mkdir -p "$project/.claude/hooks" "$project/source"
+  cp "$ROOT/payload/.claude/hooks/run-related-tests.sh" "$project/.claude/hooks/run-related-tests.sh"
+  chmod +x "$project/.claude/hooks/run-related-tests.sh"
+  git -C "$project" init -q
+
+  set +e
+  (
+    cd "$project"
+    AI_TEST_MODE=strcit .claude/hooks/run-related-tests.sh <<< '{}'
+  ) >"$OUT" 2>&1
+  status=$?
+  set -e
+
+  [ "$status" -eq 2 ] && grep -q 'Invalid AI_TEST_MODE' "$OUT"
+}
+
+test_strict_fails_when_source_directory_missing() {
+  local project="$TMP_DIR/no-source-project"
+  local status
+
+  mkdir -p "$project/.claude/hooks"
+  cp "$ROOT/payload/.claude/hooks/run-related-tests.sh" "$project/.claude/hooks/run-related-tests.sh"
+  chmod +x "$project/.claude/hooks/run-related-tests.sh"
+  git -C "$project" init -q
+
+  set +e
+  (
+    cd "$project"
+    AI_TEST_MODE=strict .claude/hooks/run-related-tests.sh <<< '{}'
+  ) >"$OUT" 2>&1
+  status=$?
+  set -e
+
+  [ "$status" -eq 2 ] && grep -q 'source directory' "$OUT"
+}
+
+test_strict_fails_outside_git_worktree() {
+  local project="$TMP_DIR/not-git-project"
+  local status
+
+  mkdir -p "$project/.claude/hooks" "$project/source"
+  cp "$ROOT/payload/.claude/hooks/run-related-tests.sh" "$project/.claude/hooks/run-related-tests.sh"
+  chmod +x "$project/.claude/hooks/run-related-tests.sh"
+
+  set +e
+  (
+    cd "$project"
+    AI_TEST_MODE=strict .claude/hooks/run-related-tests.sh <<< '{}'
+  ) >"$OUT" 2>&1
+  status=$?
+  set -e
+
+  [ "$status" -eq 2 ] && grep -q 'Git working tree' "$OUT"
+}
+
 test_install_creates_precise_backup_and_excludes_bak_suffixes() {
   local target="$TMP_DIR/install-target"
   local home="$TMP_DIR/home"
@@ -298,12 +465,23 @@ run_test "ai-test rejects leading options" test_rejects_leading_option_in_test_p
 run_test "ai-test rejects path traversal" test_rejects_path_traversal_in_test_path
 run_test "ai-test rejects symlink traversal" test_rejects_symlink_test_path
 run_test "ai-route-list rejects route path injection" test_rejects_route_path_injection
-run_test "settings has no Makefile wildcard auto-allow" test_settings_has_no_make_wildcard_auto_allow
+run_test "settings has no Makefile auto-allow" test_settings_has_no_make_wildcard_auto_allow
 run_test "block-host-tools rejects old Makefile variables" test_block_host_tools_rejects_make_cli_vars
 run_test "block-host-tools allows env-prefix Makefile commands" test_block_host_tools_allows_env_prefix
+run_test "MAKEFLAGS cannot override Makefile runner" test_make_env_override_cannot_replace_runner
+run_test "block-host-tools rejects MAKEFLAGS/AI_RUN prefix" test_block_host_tools_rejects_makeflags_ai_run_prefix
+run_test "block-host-tools rejects MAKEFILES prefix" test_block_host_tools_rejects_makefiles_prefix
+run_test "block-host-tools rejects env MAKEFLAGS/AI_RUN" test_block_host_tools_rejects_env_makeflags_ai_run
+run_test "block-host-tools rejects assignment after make" test_block_host_tools_rejects_assignment_after_make
+run_test "block-host-tools rejects unexpected env prefix" test_block_host_tools_rejects_unexpected_env_prefix
+run_test "block-host-tools rejects host PHP in docker substitution" test_block_host_tools_rejects_host_php_in_docker_substitution
+run_test "block-host-tools rejects host PHP in make substitution" test_block_host_tools_rejects_host_php_in_make_substitution
 run_test "sync rejects invalid mode" test_sync_rejects_invalid_mode_before_apply
 run_test "sync dry-run includes .claude/scripts" test_sync_dry_run_includes_claude_scripts
 run_test "strict test hook fails closed without Makefile" test_strict_related_tests_fail_closed_without_makefile
+run_test "strict test hook rejects invalid AI_TEST_MODE" test_strict_rejects_invalid_ai_test_mode
+run_test "strict test hook fails when source is missing" test_strict_fails_when_source_directory_missing
+run_test "strict test hook fails outside Git worktree" test_strict_fails_outside_git_worktree
 run_test "install backup/exclude/scripts are safe" test_install_creates_precise_backup_and_excludes_bak_suffixes
 
 if [ "$FAILURES" -ne 0 ]; then

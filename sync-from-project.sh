@@ -40,6 +40,19 @@ fi
 # --- Danh sách paths cần sync ---
 paths="CLAUDE.md AGENTS.md Makefile.ai docs/ai .claude/commands .claude/hooks .claude/scripts .claude/settings.json .claude/skills .agent .codex"
 
+if [ "$MODE" = "--apply" ]; then
+  missing_paths=""
+  for p in $paths; do
+    [ -e "$SRC/$p" ] || missing_paths="${missing_paths}
+$p"
+  done
+  if [ -n "$missing_paths" ]; then
+    echo "❌ Source thiếu managed path; dừng sync để tránh payload stale:" >&2
+    printf '%s\n' "$missing_paths" | sed '/^$/d; s/^/  - /' >&2
+    exit 2
+  fi
+fi
+
 echo "Source:  $SRC"
 echo "Dest:    $DEST"
 echo "Mode:    $MODE"
@@ -50,22 +63,58 @@ if [ "$MODE" = "--dry-run" ]; then
   echo ""
 fi
 
+replace_path_from_stage() {
+  src_path="$1"
+  dest_path="$2"
+  rel_path="$3"
+  stage_root="$4"
+
+  staged="$stage_root/value"
+  tmp_dest="$dest_path.new.$$"
+  backup_dest="$dest_path.old.$$"
+
+  rm -rf "$staged" "$tmp_dest" "$backup_dest"
+  mkdir -p "$(dirname "$staged")" "$(dirname "$dest_path")"
+  cp -R "$src_path" "$staged"
+  find "$staged" -name '*.bak*' -delete 2>/dev/null || true
+  mv "$staged" "$tmp_dest"
+
+  if [ -e "$dest_path" ]; then
+    mv "$dest_path" "$backup_dest"
+  fi
+
+  if mv "$tmp_dest" "$dest_path"; then
+    rm -rf "$backup_dest"
+    return 0
+  fi
+
+  echo "❌ Không thể replace $rel_path — khôi phục bản cũ." >&2
+  rm -rf "$tmp_dest"
+  if [ -e "$backup_dest" ]; then
+    mv "$backup_dest" "$dest_path"
+  fi
+  return 1
+}
+
 changed=0
 for p in $paths; do
   if [ -e "$SRC/$p" ]; then
     if [ "$MODE" = "--dry-run" ]; then
       echo "  [dry-run] <= $p"
     else
-      mkdir -p "$DEST/$(dirname "$p")"
-      rm -rf "$DEST/$p"
-      cp -R "$SRC/$p" "$DEST/$p"
-      # Xóa .bak files (tạo bởi installer) để tránh bị git add -A
-      find "$DEST/$p" -name '*.bak*' -delete 2>/dev/null || true
+      stage="$(mktemp -d "${TMPDIR:-/tmp}/hrm-tooling-sync.XXXXXX")"
+      if ! replace_path_from_stage "$SRC/$p" "$DEST/$p" "$p" "$stage"; then
+        rm -rf "$stage"
+        exit 1
+      fi
+      rm -rf "$stage"
       echo "  <= $p"
     fi
     changed=$((changed + 1))
   else
-    echo "  [skip] $p (không tồn tại trong source)"
+    if [ "$MODE" = "--dry-run" ]; then
+      echo "  [missing] $p (không tồn tại trong source)"
+    fi
   fi
 done
 

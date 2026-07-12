@@ -3,7 +3,8 @@
 #      AI_TEST=tests/Unit/FooTest.php make -f Makefile.ai ai-test
 # Giữ ngoài git team qua .git/info/exclude (install.sh thêm dòng "Makefile.ai").
 
-AI_RUN := ./.claude/scripts/ai-docker.sh
+override SHELL := /bin/sh
+override .SHELLFLAGS := -eu -c
 
 # Inputs must come from environment variables, not Make command-line variables.
 # GNU Make may expand command-line values like TEST='$(shell ...)' before any
@@ -18,34 +19,34 @@ export AI_ROUTE_PATH
 
 # --- Core targets ---
 ai-lint:
-	@$(AI_RUN) lint
+	@./.claude/scripts/ai-docker.sh lint
 
 ai-pint:
-	@$(AI_RUN) pint
+	@./.claude/scripts/ai-docker.sh pint
 
 ai-pint-check:
-	@$(AI_RUN) pint-check
+	@./.claude/scripts/ai-docker.sh pint-check
 
 ai-check: ai-lint ai-pint
 
 ai-test:
-	@$(AI_RUN) test
+	@./.claude/scripts/ai-docker.sh test
 
 # --- Fixed read-only targets ---
 ai-php-version:
-	@$(AI_RUN) php-version
+	@./.claude/scripts/ai-docker.sh php-version
 
 ai-route-list:
-	@$(AI_RUN) route-list
+	@./.claude/scripts/ai-docker.sh route-list
 
 ai-migrate-status:
-	@$(AI_RUN) migrate-status
+	@./.claude/scripts/ai-docker.sh migrate-status
 
 ai-about:
-	@$(AI_RUN) about
+	@./.claude/scripts/ai-docker.sh about
 
 ai-event-list:
-	@$(AI_RUN) event-list
+	@./.claude/scripts/ai-docker.sh event-list
 
 # --- Removed raw-command targets ---
 ai-artisan-safe:

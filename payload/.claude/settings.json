@@ -6,12 +6,7 @@
       "Edit(source/routes/**)",
       "Edit(source/tests/**)",
       "Edit(source/config/**)",
-      "Edit(source/database/**)",
-      "Bash(make -f Makefile.ai ai-php-version)",
-      "Bash(make -f Makefile.ai ai-route-list)",
-      "Bash(make -f Makefile.ai ai-migrate-status)",
-      "Bash(make -f Makefile.ai ai-about)",
-      "Bash(make -f Makefile.ai ai-event-list)"
+      "Edit(source/database/**)"
     ]
   }
 }
