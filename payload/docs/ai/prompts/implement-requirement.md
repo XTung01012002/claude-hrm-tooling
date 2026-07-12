@@ -139,7 +139,8 @@ Nếu có giả định cần xác nhận (bước 5) làm đổi behavior/schem
 - Reuse interface/repo có sẵn (bước 1), KHÔNG tạo mới nếu đã có.
 
 ### Bước 9: Viết/chỉnh test
-- Theo `Test Strategy Profile A/B/C` trong `docs/ai/prompts/generate-test.md`; chỉ duyệt các nhóm thuộc profile đã chọn và bổ sung nhóm ngoài profile nếu code thật cho thấy có liên quan.
+- Yêu cầu AI **chọn Test Strategy Profile (A, B hoặc C)** từ `docs/ai/prompts/generate-test.md` phù hợp với thay đổi này, ghi rõ lý do ngắn gọn.
+- Chỉ duyệt các nhóm test thuộc Profile đã chọn (bổ sung nhóm ngoài profile nếu thay đổi code cho thấy có liên quan).
 - Tối thiểu: happy path + mỗi nhánh BusinessException + edge cases từ bước 4.
 
 ### Bước 10: Chạy Quality Gate

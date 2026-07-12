@@ -15,12 +15,13 @@ Khi nhận diff (từ `git diff`, file diff dán vào, hoặc yêu cầu review 
 
 `git diff` **không thấy file untracked** (file mới chưa `git add`). Vì vậy:
 
-1. Chạy `git status --short --untracked-files=all` trước.
-2. Nếu có file `??` (untracked): **cảnh báo user** và yêu cầu `git add -A` trước khi review, hoặc đọc nội dung các file untracked để review cùng.
-3. Thu thập diff đầy đủ:
-   - `git diff` (unstaged changes)
-   - `git diff --staged` (staged changes)
-   - Nội dung các file untracked (nếu user chưa `git add`)
+1. Chạy `git ls-files --others --exclude-standard -z` trước.
+2. Đọc trực tiếp các file untracked liên quan để review cùng, KHÔNG yêu cầu user chạy `git add -A`.
+
+Input sẽ bao gồm:
+- `git diff`
+- `git diff --staged`
+- Nội dung các file untracked (đọc trực tiếp)
 4. Nếu **không có thay đổi gì** (cả diff lẫn untracked): cảnh báo user, dừng.
 
 > ⚠️ Bỏ qua bước này = có thể review thiếu toàn bộ file mới.
@@ -131,4 +132,4 @@ Convention: `type(scope): message tiếng Việt` (tham khảo commit mẫu `0f3
 1. **Branch + commit phải phản ánh diff thực tế**, không chỉ phản ánh mô tả user gửi kèm.
 2. **Commit message tiếng Việt**, súc tích, mô tả sự thay đổi thay vì liệt kê file.
 3. **Không sinh commit nếu diff có Blocker** — yêu cầu sửa trước.
-4. **Nếu diff trống**: cảnh báo user, kiểm tra cả `git diff --staged` và `git status --short --untracked-files=all`.
+4. **Nếu diff trống**: cảnh báo user, kiểm tra cả `git diff --staged` và `git ls-files --others --exclude-standard -z`.

@@ -2,7 +2,7 @@
 
 > Nguồn chân lý: `docs/ai/PROJECT-CONVENTIONS.md` (§3)
 
-Nhiệm vụ của bạn là tạo một feature hoàn chỉnh dựa trên cấu trúc chuẩn của dự án (Command/Query, Handler, ValidationInterface).
+Nhiệm vụ của bạn là tạo **core application-layer skeleton** (khung cơ sở) cho một feature dựa trên cấu trúc chuẩn của dự án. Khung này bao gồm: Command/Query, Handler, và ValidationInterface. Khung này sẽ là nền tảng để tiếp tục phát triển (implement) chi tiết.
 
 **Quy tắc bắt buộc:**
 1. **Command / Query**:

@@ -7,10 +7,15 @@
 ## Kích hoạt
 Khi người dùng gửi code PHP/Laravel kèm: `refactor`, `tối ưu`, `kiểm tra giúp`, `gửi bản hoàn chỉnh`, hoặc tương tự.
 
+## Mode Thực Thi
+Theo yêu cầu của người dùng, xác định mode:
+- **REVIEW_ONLY** (Mặc định nếu user không chỉ định rõ): Chỉ soát lỗi, đánh giá và đề xuất cách sửa (không xuất toàn bộ code).
+- **PATCH**: Chỉ xuất snippet / diff phần code thay đổi.
+- **FULL_REWRITE**: Xuất toàn bộ file / class đã refactor đầy đủ.
+
 ## Mặc định
 - Review / refactor **THEO logic hiện tại** — KHÔNG tự đổi nghiệp vụ, KHÔNG thêm feature ngoài yêu cầu, KHÔNG lan sang phần không liên quan.
 - **Refactor = giữ nguyên behavior, làm code sạch hơn.** (Không phải viết lại.)
-- `kiểm tra giúp` → **review trước, chưa sửa**. `gửi bản hoàn chỉnh` → trả **full code đã sửa**.
 - Trước khi sửa, xác định behavior gốc (§11): input/null/empty, exception, status, response shape, query filter, event/transaction. Thiếu thông tin có thể đổi behavior → **HỎI trước**.
 
 ## Thứ tự ưu tiên khi soát
@@ -23,7 +28,7 @@ Mọi nhận định phải truy được về code thật (đọc/grep). Không
 
 ## Format trả lời
 
-**Khi review** (`kiểm tra giúp`):
+**Khi ở mode REVIEW_ONLY**:
 ```markdown
 ## Kết luận
 <1-2 câu: có/không vấn đề nghiêm trọng>
@@ -42,7 +47,7 @@ Mọi nhận định phải truy được về code thật (đọc/grep). Không
 <điểm ngoài phạm vi — chỉ nêu, không tự sửa>
 ```
 
-**Khi refactor** (`gửi bản hoàn chỉnh`):
+**Khi ở mode FULL_REWRITE hoặc PATCH**:
 ```markdown
 ## Điểm refactor chính
 - <giữ logic / tách DRY / bớt nested / gom validate — KHÔNG đổi response shape>
