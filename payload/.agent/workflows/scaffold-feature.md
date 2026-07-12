@@ -1,4 +1,9 @@
 ---
-description: Generate a 3-file complete feature (Command, Handler, Validation) according to the HRM API architecture guidelines.
+description: Generate a core application-layer skeleton (Command, Handler, Validation contract) according to the HRM API architecture guidelines.
 ---
-Hãy đọc file `docs/ai/prompts/generate-feature.md` và tuân theo mọi hướng dẫn ở đó để generate feature này.
+
+Đọc `docs/ai/PROJECT-CONVENTIONS.md`.
+Đọc và thực thi chính xác `docs/ai/prompts/generate-feature.md`.
+
+Input bổ sung:
+$ARGUMENTS

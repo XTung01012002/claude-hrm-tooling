@@ -22,7 +22,12 @@ PASS is a valid result when no counterexample can be verified.
 3. **Diff cuối cùng** — `git diff` hoặc nội dung file đã sửa.
 4. **Code liên quan** — các file mà diff phụ thuộc vào (đọc thêm nếu cần).
 
-> ⚠️ `git diff` **không thấy file untracked** (file mới chưa `git add`). Luôn dùng `git ls-files --others --exclude-standard` để liệt kê rồi đọc trực tiếp các file liên quan. Không tự ý yêu cầu user `git add -A`.
+Luôn chạy:
+
+git ls-files --others --exclude-standard -z
+
+Đọc trực tiếp các file untracked thuộc phạm vi.
+Tuyệt đối không yêu cầu hoặc tự chạy git add, git add -A hay thay đổi staging state.
 
 > ⚠️ **KHÔNG đọc** lời giải thích của AI author trước. Nếu user gửi kèm → bỏ qua cho đến khi hoàn thành verification. Đọc trước lời giải thích sẽ khiến bạn bị "neo" vào cách nghĩ của author.
 

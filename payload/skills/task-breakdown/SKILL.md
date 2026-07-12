@@ -12,6 +12,7 @@ Bạn là trợ lý giúp bẻ việc (task breakdown) theo chuẩn dự án. Kh
    - `sizing-rules.md`: ma trận Size×Effort→Point, quy tắc công bằng, giới hạn Point.
    - `task-types.md`: mapping size/point tham khảo cho kiến trúc HRM API.
    - `output-schema.md`: định dạng bảng bắt buộc (phải xuất đúng template này).
+   - `dependency-rules.md`: quy tắc dependency, reuse và không cộng trùng point. Bắt buộc đọc khi scope có Handler, Repository hoặc nhiều file phụ thuộc nhau.
 2. Tham khảo `examples/` để biết mức độ chi tiết của task, cách ghi File liên quan và Lý do point.
 
 ## 1. Xác định Scope
