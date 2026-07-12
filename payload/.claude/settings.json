@@ -12,8 +12,7 @@
       "Bash(make -f Makefile.ai ai-pint-check *)",
       "Bash(make -f Makefile.ai ai-check *)",
       "Bash(make -f Makefile.ai ai-test *)",
-      "Bash(make -f Makefile.ai ai-artisan *)",
-      "Bash(make -f Makefile.ai ai-php *)",
+      "Bash(make -f Makefile.ai ai-artisan-safe *)",
       "Bash(make -f Makefile.ai ai-php-version)",
       "Bash(make -f Makefile.ai ai-route-list *)"
     ]

@@ -1,12 +1,18 @@
 #!/usr/bin/env bash
 # Stop hook: map file PHP đã đổi -> file *Test.php tương ứng trong source/tests/, chạy những cái TỒN TẠI.
-# Không có paired test -> skip êm (KHÔNG chạy full suite) để hook nhẹ, không làm AI khựng.
 #
 # Format KHÔNG check ở đây: PostToolUse (php-lint.sh) đã auto-format từng file AI sửa rồi.
 #
-# v1.4: bỏ host fallback — Docker down thì skip rõ ràng.
-# Exit 0 = OK; exit 2 = có lỗi, báo ngược cho AI sửa.
+# AI_TEST_MODE (env):
+#   advisory  — không tìm thấy test → cảnh báo + exit 0 (dùng khi đang Edit/Write, /implement)
+#   strict    — không tìm thấy test → cảnh báo + exit 2 (dùng trước /verify, /diff-review, commit)
+#   Mặc định: strict (chất lượng trước commit quan trọng hơn).
+#
+# v1.6: AI_TEST_MODE advisory/strict; v1.4: bỏ host fallback.
+# Exit 0 = OK; exit 2 = có lỗi hoặc UNVERIFIED (strict), báo ngược cho AI.
 set -uo pipefail
+
+TEST_MODE="${AI_TEST_MODE:-strict}"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SRC="$REPO_ROOT/source"
@@ -69,15 +75,23 @@ done < <(printf '%s\n' "$candidates" | sort -u)
 
 tests_to_run="$(printf '%s' "$tests_to_run" | sed 's/^ *//')"
 
-# Không có paired test -> CẢNH BÁO rõ, không im lặng
+# Không có paired test → hành vi phụ thuộc AI_TEST_MODE
 if [ -z "$tests_to_run" ]; then
   changed_php="$(collect_changed | sort -u | grep '\.php$' | grep -v 'Test\.php$' || true)"
   if [ -n "$changed_php" ]; then
     {
       echo "[run-related-tests hook] ⚠️ UNVERIFIED — không tìm thấy paired test cho:"
       printf '%s\n' "$changed_php" | head -8 | sed 's/^/  - /'
-      echo "Hook chưa xác minh behavior. Cần AI tự chọn test liên quan hoặc gọi /scaffold-test."
+      echo ""
+      echo "Điều này không có nghĩa thay đổi đã an toàn."
+      echo "Cần chọn test thủ công hoặc chạy test module trước khi hoàn tất."
+      if [ "$TEST_MODE" = "strict" ]; then
+        echo "[mode=strict] Chặn: chưa có test xác minh. Đặt AI_TEST_MODE=advisory để chỉ cảnh báo."
+      fi
     } >&2
+  fi
+  if [ "$TEST_MODE" = "strict" ] && [ -n "$changed_php" ]; then
+    exit 2
   fi
   exit 0
 fi

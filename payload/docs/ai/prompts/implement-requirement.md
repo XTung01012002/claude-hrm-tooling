@@ -9,15 +9,35 @@ Triển khai yêu cầu theo quy trình 10 bước.
 
 ## Mode thực thi
 
-| Mode | Khi nào | Hành vi |
-|---|---|---|
-| **STRICT** (mặc định) | Feature mới, thay đổi API/schema/response, ≥3 file, có assumption | Dừng sau bước 7, chờ user approve trước khi code |
-| **AUTO** | Bug fix rõ ràng, thay đổi ≤2 file, không assumption quan trọng | Xuất plan ngắn (bước 2+5+7) rồi code luôn |
-| **PLAN_ONLY** | User chỉ muốn phân tích | Chỉ xuất bước 1–7, dừng hẳn, không code |
+| Mode | Hành vi |
+|---|---|
+| **AUTO** | Phân tích rồi tự triển khai nếu rủi ro thấp |
+| **STRICT** | Dừng sau plan (bước 7), chờ user duyệt rồi mới code |
+| **PLAN_ONLY** | Chỉ phân tích, tuyệt đối không sửa code |
 
-- Nếu user chỉ định mode (vd "dùng AUTO", "chỉ phân tích"): dùng mode đó.
-- Nếu không: AI **tự chọn** mode và nêu lý do ở đầu output. User có thể override.
-- Khi nghi ngờ giữa AUTO và STRICT → **chọn STRICT** (an toàn hơn).
+### Cách chọn mode
+
+- User ghi rõ: `/implement AUTO ...`, `/implement STRICT ...`, `/implement PLAN_ONLY ...` → dùng mode đó.
+- User không ghi mode → mặc định **AUTO_WITH_ESCALATION**: bắt đầu bằng AUTO, nhưng **tự động nâng lên STRICT** nếu phát hiện bất kỳ điều kiện nào sau:
+
+```text
+Điều kiện tự động nâng STRICT:
+1.  Migration hoặc thay đổi schema
+2.  Thay đổi API contract (request/response shape)
+3.  Thay đổi public interface
+4.  Thay đổi authorization hoặc permission
+5.  Liên quan thanh toán, tính tiền hoặc dữ liệu nhạy cảm
+6.  Queue, webhook, retry hoặc idempotency
+7.  Transaction nhiều bảng
+8.  Xóa hoặc cập nhật dữ liệu hàng loạt
+9.  Thay đổi từ 5 file trở lên
+10. Có giả định nghiệp vụ chưa được xác minh
+11. Có từ 2 phương án triển khai khác nhau đáng kể
+12. Có nguy cơ backward compatibility
+13. AI không tìm được test hoặc code liên quan
+```
+
+Ở đầu output, nêu rõ: `Mode: AUTO` hoặc `Mode: STRICT (escalated — lý do: ...)`.
 
 ---
 
