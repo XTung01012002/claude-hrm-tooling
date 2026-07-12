@@ -41,17 +41,17 @@ container_up() {
 
 # Kiểm tra Docker — KHÔNG fallback sang host
 if ! has_make_target; then
-  echo "[php-lint hook] ⚠️ Makefile.ai không tồn tại — bỏ qua lint/format. Chạy tay: make -f Makefile.ai ai-check FILE=$REL" >&2
+  echo "[php-lint hook] ⚠️ Makefile.ai không tồn tại — bỏ qua lint/format. Chạy tay: AI_FILE=$REL make -f Makefile.ai ai-check" >&2
   exit 0
 fi
 
 if ! container_up; then
-  echo "[php-lint hook] ⚠️ Container hrm-api không chạy — bỏ qua lint/format. Bật Docker rồi chạy tay: make -f Makefile.ai ai-check FILE=$REL" >&2
+  echo "[php-lint hook] ⚠️ Container hrm-api không chạy — bỏ qua lint/format. Bật Docker rồi chạy tay: AI_FILE=$REL make -f Makefile.ai ai-check" >&2
   exit 0
 fi
 
 # 1) Kiểm tra cú pháp — chặn nếu lỗi
-if ! OUT="$(make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-lint FILE="$REL" 2>&1)"; then
+if ! OUT="$(AI_FILE="$REL" make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-lint 2>&1)"; then
   {
     echo "[php-lint hook] make ai-lint FAILED:"
     printf '%s\n' "$OUT"
@@ -60,7 +60,7 @@ if ! OUT="$(make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-lint FILE="$REL"
 fi
 
 # 2) Auto-format bằng Pint — cảnh báo nếu fail (không chặn vì format là best-effort)
-if ! PINT_OUT="$(make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-pint FILE="$REL" 2>&1)"; then
+if ! PINT_OUT="$(AI_FILE="$REL" make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-pint 2>&1)"; then
   {
     echo "[php-lint hook] ⚠️ Pint format thất bại — file có thể chưa được format:"
     printf '%s\n' "$PINT_OUT" | tail -5
@@ -68,7 +68,7 @@ if ! PINT_OUT="$(make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-pint FILE="
 fi
 
 # 3) Re-lint sau format (Pint có thể thay đổi syntax)
-if ! OUT2="$(make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-lint FILE="$REL" 2>&1)"; then
+if ! OUT2="$(AI_FILE="$REL" make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-lint 2>&1)"; then
   {
     echo "[php-lint hook] ❌ Lint thất bại SAU KHI format:"
     printf '%s\n' "$OUT2"

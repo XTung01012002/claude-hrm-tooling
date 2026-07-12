@@ -17,6 +17,16 @@ INPUT="$(cat)"
 COMMAND="$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)"
 [ -z "$COMMAND" ] && exit 0
 
+# GNU Make expands command-line variables before recipes run. This means
+# `make -f Makefile.ai ai-test TEST='$(shell ...)'` can execute during parsing,
+# before Makefile.ai or wrapper validation can reject it.
+if printf '%s' "$COMMAND" | grep -qE 'make([^;&|]|\\.)*Makefile\.ai' &&
+   printf '%s' "$COMMAND" | grep -qE '(^|[[:space:]])(FILE|TEST|CMD|ARGS|ROUTE_PATH)='; then
+  echo "🚨 LỖI (PreToolUse Guard): Không truyền FILE/TEST/CMD/ARGS/ROUTE_PATH dưới dạng biến command-line cho Makefile.ai." >&2
+  echo "✅ Dùng env-prefix an toàn, ví dụ: \`AI_FILE=source/path/File.php make -f Makefile.ai ai-lint\` hoặc \`AI_TEST=tests/Unit/XTest.php make -f Makefile.ai ai-test\`." >&2
+  exit 2
+fi
+
 # --- Patterns ---
 # Vị trí command = đầu dòng (^) hoặc sau command separator (; & | ()
 SEP='(^|[;&|()])'
@@ -74,7 +84,7 @@ if [ "$BLOCK" = "1" ]; then
   fi
   echo "🚨 LỖI (PreToolUse Guard): Phát hiện PHP/Composer/Pint/PHPUnit chạy trên môi trường host!" >&2
   echo "❌ Việc này bị NGHIÊM CẤM — host chạy PHP version khác với container (8.2.31), gây báo xanh giả." >&2
-  echo "✅ 👉 Hãy sử dụng: \`make -f Makefile.ai ai-lint/ai-test/ai-php\` hoặc \`docker compose exec hrm-api ...\`." >&2
+  echo "✅ 👉 Hãy sử dụng: \`make -f Makefile.ai ai-lint/ai-test/ai-php-version\` hoặc \`docker compose exec hrm-api ...\`." >&2
   exit 2
 fi
 

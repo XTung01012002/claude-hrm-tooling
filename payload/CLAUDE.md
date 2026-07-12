@@ -17,9 +17,9 @@ File này chỉ tóm tắt; chi tiết + lý do nằm ở đó.
 - Validation/`BusinessException` thường trả `{ "status":"error", "code", "message", "errors"? }`; auth/500 có legacy envelope khác — đọc `PROJECT-CONVENTIONS` §3.3, không giả định mọi lỗi giống nhau.
 
 ## Môi trường (QUAN TRỌNG)
-- Chạy thật trong **Docker container `hrm-api`**; version pin gần nhất xem `PROJECT-CONVENTIONS` §12 và kiểm bằng `ai-php`. Host PHP có thể mới hơn, nhưng **không dùng làm chuẩn verify**.
+- Chạy thật trong **Docker container `hrm-api`**; version pin gần nhất xem `PROJECT-CONVENTIONS` §12 và kiểm bằng `ai-php-version`. Host PHP có thể mới hơn, nhưng **không dùng làm chuẩn verify**.
 - Không chạy trực tiếp `php`, `composer`, `php artisan`, `vendor/bin/phpunit`, `vendor/bin/pint` trên host khi kiểm tra code.
-- Lệnh chuẩn cho AI: `make -f Makefile.ai ai-lint FILE=source/...`, `make -f Makefile.ai ai-pint FILE=source/...`, `make -f Makefile.ai ai-test TEST=tests/Unit/XTest.php`, `make -f Makefile.ai ai-artisan-safe CMD="route:list"`, `make -f Makefile.ai ai-php-version`. Lệnh ghi dữ liệu (migrate, seed, cache:clear...) phải chạy tay.
+- Lệnh chuẩn cho AI: `AI_FILE=source/... make -f Makefile.ai ai-lint`, `AI_FILE=source/... make -f Makefile.ai ai-pint`, `AI_TEST=tests/Unit/XTest.php make -f Makefile.ai ai-test`, `make -f Makefile.ai ai-route-list`, `AI_ROUTE_PATH=api/v1/... make -f Makefile.ai ai-route-list`, `make -f Makefile.ai ai-php-version`. Lệnh ghi dữ liệu (migrate, seed, cache:clear...) phải chạy tay.
 
 ## Slash commands & Skills (Backed by `docs/ai/prompts/*.md`)
 - `/review` → review diff theo checklist, verdict PASS/FAIL (`docs/ai/prompts/review.md`).

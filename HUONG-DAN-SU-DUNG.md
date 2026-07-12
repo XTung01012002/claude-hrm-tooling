@@ -61,7 +61,7 @@ git clone https://github.com/XTung01012002/claude-hrm-tooling.git
 cd claude-hrm-tooling
 ./install.sh /duong-dan/toi/hrm-api
 ```
-`install.sh` copy vào project: `CLAUDE.md`, `AGENTS.md`, `Makefile.ai`, `docs/ai/`, `.claude/{commands,hooks,settings.json,skills}`, `.agent/{workflows,hooks.json}`, `.codex/hooks.json`; và copy `~/.codex/prompts/` nếu máy có `~/.codex`.
+`install.sh` copy vào project: `CLAUDE.md`, `AGENTS.md`, `Makefile.ai`, `docs/ai/`, `.claude/{commands,hooks,scripts,settings.json,skills}`, `.agent/{workflows,hooks.json}`, `.codex/hooks.json`; và copy `~/.codex/prompts/` nếu máy có `~/.codex`.
 
 ### 2) Một-lần cho từng nền tảng
 - **Claude Code:** Script \`install.sh\` đã tự động merge hook vào \`.claude/settings.local.json\`. Bạn chỉ cần khởi động lại Claude Code.
@@ -78,7 +78,7 @@ cd claude-hrm-tooling
 ## D. Môi trường (RẤT QUAN TRỌNG — local ≠ Docker)
 - Chạy thật trong **Docker container `hrm-api` (PHP 8.2.31)** thông qua script `Makefile.ai`. Host PHP mới hơn không được dùng làm chuẩn verify. Tooling đã có PreToolUse Guard chặn AI tự động verify trên host.
 - Không chạy trực tiếp `php`, `composer`, `php artisan`, `vendor/bin/phpunit`, `vendor/bin/pint` trên host khi kiểm tra code. Nếu Docker down, hooks sẽ **bỏ qua lint/format/test** với cảnh báo — KHÔNG fallback sang host PHP.
-- Lệnh chuẩn cho AI: `make -f Makefile.ai ai-lint FILE=source/...`, `make -f Makefile.ai ai-pint FILE=source/...`, `make -f Makefile.ai ai-check FILE=source/...`, `make -f Makefile.ai ai-test TEST=tests/Unit/XTest.php`, `make -f Makefile.ai ai-artisan CMD="route:list"`.
+- Lệnh chuẩn cho AI: `AI_FILE=source/... make -f Makefile.ai ai-lint`, `AI_FILE=source/... make -f Makefile.ai ai-pint`, `AI_FILE=source/... make -f Makefile.ai ai-check`, `AI_TEST=tests/Unit/XTest.php make -f Makefile.ai ai-test`, `make -f Makefile.ai ai-route-list`, `AI_ROUTE_PATH=api/v1/... make -f Makefile.ai ai-route-list`.
 - Cài deps trong container: `make shell` → `composer install` → `make copy-vendor` (hoặc dùng target composer sẵn có trong `Makefile`).
 
 ---
@@ -112,7 +112,7 @@ git pull && ./install.sh /duong-dan/toi/hrm-api
 | Bẻ việc / bóc task / estimate | `/task-breakdown` |
 | Sinh docs FE | `/api-docs` |
 | Sinh test | `/scaffold-test <path>` |
-| Chạy test | `make -f Makefile.ai ai-test TEST=tests/Unit/XTest.php` |
-| Format/lint | `make -f Makefile.ai ai-check FILE=source/path/to/File.php` |
+| Chạy test | `AI_TEST=tests/Unit/XTest.php make -f Makefile.ai ai-test` |
+| Format/lint | `AI_FILE=source/path/to/File.php make -f Makefile.ai ai-check` |
 | Cài máy mới | `./install.sh /path/to/hrm-api` + (Claude) chỉ cần restart; (Codex) Trust |
 | Đồng bộ thay đổi | `./sync-from-project.sh` → commit → push → (máy kia) pull + install |

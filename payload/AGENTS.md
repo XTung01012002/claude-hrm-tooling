@@ -17,13 +17,13 @@
 - Validation/`BusinessException` thường trả `{ "status":"error", "code", "message", "errors"? }`; auth/500 có legacy envelope khác — đọc `PROJECT-CONVENTIONS` §3.3, không giả định mọi lỗi giống nhau.
 
 ## Môi trường (QUAN TRỌNG)
-- Chạy thật trong **Docker container `hrm-api`**; version pin gần nhất xem `PROJECT-CONVENTIONS` §12 và kiểm bằng `ai-php`. Host PHP chỉ để tham khảo, **không dùng làm chuẩn verify**.
+- Chạy thật trong **Docker container `hrm-api`**; version pin gần nhất xem `PROJECT-CONVENTIONS` §12 và kiểm bằng `ai-php-version`. Host PHP chỉ để tham khảo, **không dùng làm chuẩn verify**.
 - Không chạy trực tiếp `php`, `composer`, `php artisan`, `vendor/bin/phpunit`, `vendor/bin/pint` trên host khi kiểm tra code.
-- Lệnh chuẩn cho AI sau khi sửa PHP: `make -f Makefile.ai ai-pint FILE=source/...` + `make -f Makefile.ai ai-lint FILE=source/...`; nếu có test tương ứng thì `make -f Makefile.ai ai-test TEST=tests/Unit/<X>Test.php`.
-- Artisan (read-only, allow-list): `make -f Makefile.ai ai-artisan-safe CMD="route:list"`; kiểm PHP version: `make -f Makefile.ai ai-php-version`. Lệnh ghi dữ liệu (migrate, seed, cache:clear...) phải chạy tay.
+- Lệnh chuẩn cho AI sau khi sửa PHP: `AI_FILE=source/... make -f Makefile.ai ai-pint` + `AI_FILE=source/... make -f Makefile.ai ai-lint`; nếu có test tương ứng thì `AI_TEST=tests/Unit/<X>Test.php make -f Makefile.ai ai-test`.
+- Artisan read-only dùng target cố định: `make -f Makefile.ai ai-route-list`, `make -f Makefile.ai ai-migrate-status`, `make -f Makefile.ai ai-about`, `make -f Makefile.ai ai-event-list`; kiểm PHP version: `make -f Makefile.ai ai-php-version`. Lệnh ghi dữ liệu (migrate, seed, cache:clear...) phải chạy tay.
 
 ## Tự kiểm tra sau khi sửa code (BẮT BUỘC — môi trường không có hook)
-- Sau khi sửa/sinh `.php`: **TỰ chạy** `make -f Makefile.ai ai-lint FILE=...` (+ `ai-pint`, + `ai-test TEST=...` nếu có test) — coi như bước bắt buộc, không bỏ.
+- Sau khi sửa/sinh `.php`: **TỰ chạy** `AI_FILE=... make -f Makefile.ai ai-lint` (+ `ai-pint`, + `AI_TEST=... make -f Makefile.ai ai-test` nếu có test) — coi như bước bắt buộc, không bỏ.
 - **TUYỆT ĐỐI không** chạy `php`/`composer`/`php artisan`/`vendor/bin/phpunit`/`vendor/bin/pint` trên host (đây là vai trò của PreToolUse guard mà IDE không bắn → phải tự kỷ luật).
 - Trước khi tạo class/method mới: **tự tìm reuse** (xem mục find-reuse) trong `Core/Components/<Module>/Shared/`, `Infrastructure/<Module>/Repositories/`, `Infrastructure/Shared/Helper.php`, `*Trait`.
 

@@ -7,7 +7,15 @@ set -euo pipefail
 SRC="${1:-}"
 MODE="${2:---dry-run}"
 
-[ -n "$SRC" ] || { echo "Usage: ./sync-from-project.sh /duong-dan/toi/project [--apply]" >&2; exit 1; }
+[ -n "$SRC" ] || { echo "Usage: ./sync-from-project.sh /duong-dan/toi/project [--dry-run|--apply]" >&2; exit 1; }
+case "$MODE" in
+  --dry-run | --apply) ;;
+  *)
+    echo "Usage: ./sync-from-project.sh /duong-dan/toi/project [--dry-run|--apply]" >&2
+    echo "❌ Option không hợp lệ: $MODE" >&2
+    exit 2
+    ;;
+esac
 SRC="$(cd "$SRC" 2>/dev/null && pwd)" || { echo "❌ Không tìm thấy thư mục: $1" >&2; exit 1; }
 TOOLING_ROOT="$(cd "$(dirname "$0")" && pwd)"
 DEST="$TOOLING_ROOT/payload"
@@ -21,8 +29,8 @@ if [ ! -f "$SRC/source/composer.json" ]; then
   exit 1
 fi
 
-# 2) Chặn nếu tooling repo có uncommitted changes (tránh mất thay đổi chưa commit)
-if [ -n "$(git -C "$TOOLING_ROOT" status --porcelain 2>/dev/null)" ]; then
+# 2) Chặn apply nếu tooling repo có uncommitted changes (tránh mất thay đổi chưa commit)
+if [ "$MODE" = "--apply" ] && [ -n "$(git -C "$TOOLING_ROOT" status --porcelain 2>/dev/null)" ]; then
   echo "⚠️ Tooling repo có uncommitted changes." >&2
   echo "   Commit hoặc stash trước khi sync để tránh mất thay đổi." >&2
   echo "   Bỏ qua bước này bằng: git stash && $0 $*" >&2
@@ -30,7 +38,7 @@ if [ -n "$(git -C "$TOOLING_ROOT" status --porcelain 2>/dev/null)" ]; then
 fi
 
 # --- Danh sách paths cần sync ---
-paths="CLAUDE.md AGENTS.md Makefile.ai docs/ai .claude/commands .claude/hooks .claude/settings.json .claude/skills .agent .codex"
+paths="CLAUDE.md AGENTS.md Makefile.ai docs/ai .claude/commands .claude/hooks .claude/scripts .claude/settings.json .claude/skills .agent .codex"
 
 echo "Source:  $SRC"
 echo "Dest:    $DEST"

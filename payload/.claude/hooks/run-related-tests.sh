@@ -98,17 +98,36 @@ fi
 
 # Kiểm tra Docker — KHÔNG fallback sang host
 if ! has_make_target; then
-  echo "[run-related-tests hook] ⚠️ Makefile.ai không tồn tại — bỏ qua test. Chạy tay: make -f Makefile.ai ai-test TEST=$tests_to_run" >&2
+  {
+    echo "[run-related-tests hook] ⚠️ UNVERIFIED — Makefile.ai không tồn tại."
+    echo "Cần cài tooling hoặc chạy test thủ công trong container."
+    if [ "$TEST_MODE" = "strict" ]; then
+      echo "[mode=strict] Chặn: không thể xác minh test liên quan."
+    fi
+  } >&2
+  [ "$TEST_MODE" = "strict" ] && exit 2
   exit 0
 fi
 
 if ! container_up; then
-  echo "[run-related-tests hook] ⚠️ Container hrm-api không chạy — bỏ qua test. Bật Docker rồi chạy tay: make -f Makefile.ai ai-test TEST=$tests_to_run" >&2
+  {
+    echo "[run-related-tests hook] ⚠️ UNVERIFIED — container hrm-api không chạy."
+    echo "Bật Docker rồi chạy test liên quan:"
+    printf '%s\n' "$tests_to_run" | tr ' ' '\n' | sed '/^$/d; s#^#  AI_TEST=#; s#$# make -f Makefile.ai ai-test#'
+    if [ "$TEST_MODE" = "strict" ]; then
+      echo "[mode=strict] Chặn: không thể xác minh test liên quan."
+    fi
+  } >&2
+  [ "$TEST_MODE" = "strict" ] && exit 2
   exit 0
 fi
 
-if ! make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-test TEST="$tests_to_run"; then
-  echo "[run-related-tests hook] Unit test FAILED: ${tests_to_run}" >&2
-  exit 2
-fi
+while IFS= read -r test_file; do
+  [ -z "$test_file" ] && continue
+  if ! AI_TEST="$test_file" make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-test; then
+    echo "[run-related-tests hook] Unit test FAILED: ${test_file}" >&2
+    exit 2
+  fi
+done < <(printf '%s\n' "$tests_to_run" | tr ' ' '\n' | sed '/^$/d')
+
 exit 0

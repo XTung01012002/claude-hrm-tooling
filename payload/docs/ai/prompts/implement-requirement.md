@@ -12,6 +12,7 @@ Triển khai yêu cầu theo quy trình 10 bước.
 | Mode | Hành vi |
 |---|---|
 | **AUTO** | Phân tích rồi tự triển khai nếu rủi ro thấp |
+| **AUTO_WITH_ESCALATION** | Mặc định: như AUTO, nhưng tự nâng STRICT khi gặp trigger rủi ro |
 | **STRICT** | Dừng sau plan (bước 7), chờ user duyệt rồi mới code |
 | **PLAN_ONLY** | Chỉ phân tích, tuyệt đối không sửa code |
 
@@ -118,8 +119,14 @@ Chọn giải pháp **thay đổi ít nhất** mà đạt yêu cầu. Nếu có 
 - Option B: ... — không chọn vì ...
 ```
 
-**⏸️ DỪNG ĐÂY — Xuất kết quả bước 1–7 cho user xem.**
-Nếu có giả định cần xác nhận (bước 5), chờ user trả lời trước khi tiếp.
+### Quyết định sau bước 7 theo mode
+
+- **PLAN_ONLY:** dừng tại đây; chỉ xuất bước 1–7, không sửa code.
+- **STRICT:** dừng tại đây; xuất bước 1–7 và chờ user duyệt trước khi vào bước 8.
+- **AUTO:** xuất plan ngắn gọn rồi tiếp tục ngay bước 8–10 trong cùng lượt; chỉ dừng nếu có giả định quan trọng cần xác nhận.
+- **AUTO_WITH_ESCALATION:** nếu gặp escalation trigger thì chuyển sang STRICT và dừng; nếu không thì xử lý như AUTO.
+
+Nếu có giả định cần xác nhận (bước 5) làm đổi behavior/schema/API/security → chờ user trả lời trước khi code, bất kể mode.
 
 ---
 
@@ -139,13 +146,13 @@ Nếu có giả định cần xác nhận (bước 5), chờ user trả lời tr
 
 ```bash
 # Lint syntax PHP 8.2
-make -f Makefile.ai ai-lint FILE=source/path/to/File.php
+AI_FILE=source/path/to/File.php make -f Makefile.ai ai-lint
 
 # Format
-make -f Makefile.ai ai-pint FILE=source/path/to/File.php
+AI_FILE=source/path/to/File.php make -f Makefile.ai ai-pint
 
 # Test
-make -f Makefile.ai ai-test TEST=tests/Unit/XTest.php
+AI_TEST=tests/Unit/XTest.php make -f Makefile.ai ai-test
 ```
 
 **Bắt buộc** chạy cả 3 lệnh. Nếu fail → sửa → chạy lại.

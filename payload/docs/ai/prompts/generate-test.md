@@ -128,7 +128,7 @@ class <ClassName>Test extends TestCase
 
 ## Kiểm chứng bắt buộc
 
-1. Chạy test trong Docker/PHP 8.2: `make -f Makefile.ai ai-test TEST=<đường-dẫn-tương-đối-từ-source>`, ví dụ `TEST=tests/Unit/<ClassName>Test.php`. Feature test cần boot app vẫn phải chạy qua Docker.
+1. Chạy test trong Docker/PHP 8.2: `AI_TEST=<đường-dẫn-tương-đối-từ-source> make -f Makefile.ai ai-test`, ví dụ `AI_TEST=tests/Unit/<ClassName>Test.php make -f Makefile.ai ai-test`. Feature test cần boot app vẫn phải chạy qua Docker.
 2. Nếu test fail do test vừa sinh, đọc lỗi, sửa nguyên nhân và chạy lại; tối đa **3 lần chạy tổng cộng**.
 3. Không nới lỏng/xóa assertion, bỏ test case hoặc sửa production code chỉ để test xanh. Chỉ sửa production code khi người dùng yêu cầu riêng.
 4. Nếu vẫn fail sau 3 lần, hoặc Docker/container không sẵn sàng, báo rõ lệnh đã chạy, lỗi cụ thể và trạng thái chưa verify; không chạy PHP/PHPUnit trên host để thay thế và không tuyên bố test đã pass.

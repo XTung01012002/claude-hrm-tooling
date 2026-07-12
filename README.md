@@ -7,7 +7,7 @@ Bộ AI tooling cá nhân cho **HRM API**, tách khỏi repo code team. Đồng 
 ## Nội dung (`payload/` — mirror cấu trúc project; `install.sh` copy hết)
 - `CLAUDE.md` (Claude) · `AGENTS.md` (Antigravity/Codex/Cursor) — pointer rule, trỏ về `docs/ai/PROJECT-CONVENTIONS.md`.
 - `docs/ai/PROJECT-CONVENTIONS.md` + `docs/ai/prompts/*.md` — nguồn chân lý trung lập (13+ prompt: review, review-vs-plan, implement, scaffold-test, api-docs, code-docs, diff-review, verify, refactor, commit-message, find-reuse, scaffold-feature, task-breakdown).
-- `.claude/commands/*.md` + `.claude/hooks/*.sh` — 13+ slash commands + hook lint/format/test (Claude).
+- `.claude/commands/*.md` + `.claude/hooks/*.sh` + `.claude/scripts/*.sh` — 13+ slash commands + hook lint/format/test + wrapper Docker an toàn (Claude).
 - `.agent/workflows/*.md` + `.agent/hooks.json` — 13+ workflows + hooks (Antigravity).
 - `.codex/hooks.json` — hooks (Codex); prompts cài vào `~/.codex/prompts` qua `install.sh`.
 
@@ -38,4 +38,4 @@ git add -A && git commit -m "update tooling" && git push
 
 > - `install.sh` tự thêm các file AI (`CLAUDE.md`, `AGENTS.md`, `.claude/`, `.agent/`, `.codex/`, `docs/ai/`) vào `<project>/.git/info/exclude` → **không lỡ commit vào repo team** (`api-docs/` không bị exclude vì có thể thuộc project).
 > - `.claude/settings.local.json` không nằm trong repo này (gitignore + chứa path theo máy) → đăng ký hook qua `hooks-snippet.json`.
-> - `.claude/hooks/*.sh` là **code tự chạy** — nên liếc lại sau mỗi `git pull`.
+> - `.claude/hooks/*.sh` và `.claude/scripts/*.sh` là **code tự chạy** — nên liếc lại sau mỗi `git pull`.

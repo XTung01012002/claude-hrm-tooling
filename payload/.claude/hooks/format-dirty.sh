@@ -88,7 +88,7 @@ while IFS= read -r f; do
   [ -z "$f" ] && continue
   case "$f" in *.php) ;; *) continue ;; esac
   file_exists "$f" || continue
-  if ! OUT="$(make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-lint FILE="$f" 2>&1)"; then
+  if ! OUT="$(AI_FILE="$f" make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-lint 2>&1)"; then
     echo "[format-dirty] make ai-lint FAILED: $f" >&2
     printf '%s\n' "$OUT" >&2
     fail=1
@@ -100,7 +100,7 @@ done < <(collect_lint_files)
 if [ -n "$TARGET_FILE" ]; then
   case "$TARGET_FILE" in *.php)
     file_exists "$TARGET_FILE" && \
-      make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-pint FILE="$TARGET_FILE" >/dev/null 2>&1 || true
+      AI_FILE="$TARGET_FILE" make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-pint >/dev/null 2>&1 || true
   ;; esac
 fi
 

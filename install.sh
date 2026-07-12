@@ -28,6 +28,29 @@ if [ -f "$SETTINGS_FILE" ]; then
 fi
 
 SRC="$(cd "$(dirname "$0")/payload" && pwd)"
+SNIPPET="$(cd "$(dirname "$0")" && pwd)/hooks-snippet.json"
+
+# Preflight trước khi copy file để tránh cài đặt dở nếu merge hooks không thể chạy.
+if ! command -v jq >/dev/null 2>&1; then
+  echo "❌ Không tìm thấy lệnh 'jq'. Cài jq trước khi chạy install.sh để merge hooks an toàn." >&2
+  exit 1
+fi
+
+for json_file in "$SNIPPET" "$SRC/.claude/settings.json" "$SRC/.agent/hooks.json" "$SRC/.codex/hooks.json"; do
+  if [ -f "$json_file" ]; then
+    jq empty "$json_file" >/dev/null || {
+      echo "❌ JSON không hợp lệ: $json_file" >&2
+      exit 1
+    }
+  fi
+done
+
+if [ -f "$SETTINGS_FILE" ]; then
+  jq empty "$SETTINGS_FILE" >/dev/null || {
+    echo "❌ JSON không hợp lệ: $SETTINGS_FILE" >&2
+    exit 1
+  }
+fi
 
 echo "Cai tooling vao: $TARGET"
 while IFS= read -r -d '' f; do
@@ -41,14 +64,17 @@ while IFS= read -r -d '' f; do
   
   # Backup với timestamp (không ghi đè backup cũ)
   if [ -f "$dest" ] && ! cmp -s "$SRC/$rel" "$dest"; then
-    cp "$dest" "$dest.bak.$(date +%Y%m%d-%H%M%S)"
-    echo "  ! Đã sao lưu file cũ: $rel.bak.$(date +%Y%m%d-%H%M%S)"
+    stamp="$(date +%Y%m%d-%H%M%S).$$"
+    backup="$dest.bak.$stamp"
+    cp -- "$dest" "$backup"
+    echo "  ! Đã sao lưu file cũ: ${backup#$TARGET/}"
   fi
   cp "$SRC/$rel" "$dest"
   echo "  + $rel"
 done < <(cd "$SRC" && find . -type f -print0)
 
 chmod +x "$TARGET/.claude/hooks/"*.sh 2>/dev/null || true
+chmod +x "$TARGET/.claude/scripts/"*.sh 2>/dev/null || true
 
 # (Tùy chọn) Codex global slash commands: ~/.codex/prompts (dùng chung nội dung với .claude/commands, có namespace)
 if [ -d "$HOME/.codex" ]; then
@@ -71,7 +97,7 @@ if [ -d "$TARGET/.git" ] || [ -f "$TARGET/.git" ]; then
       *) EXCLUDE="$TARGET/$EXCLUDE" ;;
     esac
     mkdir -p "$(dirname "$EXCLUDE")"
-    for p in CLAUDE.md AGENTS.md .claude/ .agent/ .codex/ docs/ai/ Makefile.ai '*.bak'; do
+    for p in CLAUDE.md AGENTS.md .claude/ .agent/ .codex/ docs/ai/ Makefile.ai '*.bak' '*.bak.*' '.claude/tooling-backups/'; do
       grep -qxF "$p" "$EXCLUDE" 2>/dev/null || printf '%s\n' "$p" >> "$EXCLUDE"
     done
     echo "  + da them file AI vao $EXCLUDE (giu ngoai git team)"
@@ -84,37 +110,32 @@ echo "Da cai: Claude (.claude/commands+hooks), Antigravity (.agent/workflows), C
 # Cấu hình cài đặt settings.local.json thông qua jq deep merge (append + dedup arrays)
 echo "Đang cấu hình settings.local.json..."
 MERGE_OK=0
-if command -v jq >/dev/null 2>&1; then
-  mkdir -p "$(dirname "$SETTINGS_FILE")"
-  if [ ! -f "$SETTINGS_FILE" ]; then
-    echo "{}" > "$SETTINGS_FILE"
+mkdir -p "$(dirname "$SETTINGS_FILE")"
+if [ ! -f "$SETTINGS_FILE" ]; then
+  echo "{}" > "$SETTINGS_FILE"
+fi
+if [ -f "$SNIPPET" ]; then
+  # Deep merge: object keys merge đệ quy, arrays append + deduplicate (idempotent)
+  if jq -n --slurpfile base "$SETTINGS_FILE" --slurpfile new "$SNIPPET" '
+    def deep_merge($b):
+      if type == "object" and ($b | type) == "object" then
+        . as $a | reduce ($b | keys[]) as $k ($a;
+          if has($k) then .[$k] = (.[$k] | deep_merge($b[$k]))
+          else .[$k] = $b[$k] end
+        )
+      elif type == "array" and ($b | type) == "array" then
+        [.[], $b[]] | unique_by(tojson)
+      else $b
+      end;
+    $base[0] | deep_merge($new[0])
+  ' > "${SETTINGS_FILE}.tmp"; then
+    mv "${SETTINGS_FILE}.tmp" "$SETTINGS_FILE"
+    echo "  + Đã merge hooks vào $SETTINGS_FILE (arrays append + dedup, idempotent)."
+    MERGE_OK=1
+  else
+    rm -f "${SETTINGS_FILE}.tmp"
+    echo "❌ Merge hooks THẤT BẠI — kiểm tra lại $SETTINGS_FILE và chạy lại install.sh." >&2
   fi
-  SNIPPET="$(dirname "$0")/hooks-snippet.json"
-  if [ -f "$SNIPPET" ]; then
-    # Deep merge: object keys merge đệ quy, arrays append + deduplicate (idempotent)
-    if jq -n --slurpfile base "$SETTINGS_FILE" --slurpfile new "$SNIPPET" '
-      def deep_merge($b):
-        if type == "object" and ($b | type) == "object" then
-          . as $a | reduce ($b | keys[]) as $k ($a;
-            if has($k) then .[$k] = (.[$k] | deep_merge($b[$k]))
-            else .[$k] = $b[$k] end
-          )
-        elif type == "array" and ($b | type) == "array" then
-          [.[], $b[]] | unique_by(tojson)
-        else $b
-        end;
-      $base[0] | deep_merge($new[0])
-    ' > "${SETTINGS_FILE}.tmp"; then
-      mv "${SETTINGS_FILE}.tmp" "$SETTINGS_FILE"
-      echo "  + Đã merge hooks vào $SETTINGS_FILE (arrays append + dedup, idempotent)."
-      MERGE_OK=1
-    else
-      rm -f "${SETTINGS_FILE}.tmp"
-      echo "❌ Merge hooks THẤT BẠI — $SETTINGS_FILE có thể chứa JSON sai. Kiểm tra lại file rồi chạy lại install.sh." >&2
-    fi
-  fi
-else
-  echo "⚠️ Không tìm thấy lệnh 'jq', vui lòng cài đặt 'jq' hoặc merge tay phần 'hooks' từ hooks-snippet.json vào $SETTINGS_FILE."
 fi
 
 if [ -f "$(dirname "$0")/VERSION" ]; then

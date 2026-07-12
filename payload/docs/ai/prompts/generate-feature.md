@@ -26,4 +26,4 @@ Nhiệm vụ của bạn là tạo một feature hoàn chỉnh dựa trên cấu
    - Nhắc khai báo route nếu cần thiết.
 
 Hãy tạo code cho Module và Feature được yêu cầu (hãy neo vào golden template `SaveZaloAccountStaff` để tham khảo nếu có sẵn). Sau khi sinh code xong, hãy chạy lệnh sau để tự động xác thực cú pháp:
-`make -f Makefile.ai ai-lint FILE=source/...`
+`AI_FILE=source/... make -f Makefile.ai ai-lint`

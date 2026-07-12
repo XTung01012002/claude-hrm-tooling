@@ -119,8 +119,8 @@ Phân biệt rõ bốn việc:
 Nếu cần chạy test/lint để xác minh và môi trường cho phép, chỉ dùng lệnh Docker của dự án:
 
 ```bash
-make -f Makefile.ai ai-lint FILE=source/...
-make -f Makefile.ai ai-test TEST=tests/Unit/<X>Test.php
+AI_FILE=source/... make -f Makefile.ai ai-lint
+AI_TEST=tests/Unit/<X>Test.php make -f Makefile.ai ai-test
 ```
 
 Không chạy `php`, `composer`, `php artisan`, `vendor/bin/phpunit` hoặc `vendor/bin/pint` trực tiếp trên host. Nếu Docker không hoạt động, không fallback sang host; ghi rõ chưa chạy được.

@@ -1,60 +1,59 @@
 # payload/Makefile.ai — ai-* targets chạy THẬT trong container hrm-api.
-# Gọi: make -f Makefile.ai ai-lint FILE=source/src/.../Foo.php
-#      make -f Makefile.ai ai-test TEST=tests/Unit/FooTest.php
+# Gọi: AI_FILE=source/src/.../Foo.php make -f Makefile.ai ai-lint
+#      AI_TEST=tests/Unit/FooTest.php make -f Makefile.ai ai-test
 # Giữ ngoài git team qua .git/info/exclude (install.sh thêm dòng "Makefile.ai").
-EXEC := cd docker/local && docker compose exec -T hrm-api
-.PHONY: ai-lint ai-pint ai-pint-check ai-check ai-test ai-artisan-safe ai-artisan-unsafe ai-php-version ai-route-list
 
-# strip "source/" để ra path tương đối /var/www/html trong container
-CFILE = $(patsubst source/%,%,$(FILE))
+AI_RUN := ./.claude/scripts/ai-docker.sh
 
-# ============================================================
-# ALLOW-LIST cho ai-artisan-safe
-# Chỉ các lệnh READ-ONLY hoặc sinh code mới (không ghi DB, không xóa cache).
-# Lệnh ngoài danh sách → phải chạy tay hoặc dùng ai-artisan-unsafe.
-# ============================================================
-ALLOWED_ARTISAN := \
-  about \
-  list \
-  help \
-  route:list \
-  event:list \
-  schedule:list \
-  config:show \
-  env \
-  test \
-  migrate:status \
-  model:show \
-  queue:monitor \
-  schedule:test \
-  make:test \
-  make:command \
-  make:class \
-  make:enum \
-  make:exception \
-  make:interface \
-  make:request
+# Inputs must come from environment variables, not Make command-line variables.
+# GNU Make may expand command-line values like TEST='$(shell ...)' before any
+# recipe runs. Keep user-controlled values out of make's variable parser.
+export AI_FILE
+export AI_TEST
+export AI_ROUTE_PATH
 
-define check_artisan_allow
-$(if $(filter $(firstword $(CMD)),$(ALLOWED_ARTISAN)),,$(error ❌ BLOCKED: "$(firstword $(CMD))" không nằm trong allow-list. Chạy tay trong container: docker compose exec -T hrm-api php artisan $(CMD)))
-endef
+.PHONY: ai-lint ai-pint ai-pint-check ai-check ai-test \
+	ai-php-version ai-route-list ai-migrate-status ai-about ai-event-list \
+	ai-artisan-safe ai-artisan-unsafe
 
-# --- Core targets (AI tự động chạy) ---
-ai-lint:       ; @$(EXEC) php -l "$(CFILE)"
-ai-pint:       ; @$(EXEC) vendor/bin/pint "$(CFILE)"
-ai-pint-check: ; @$(EXEC) vendor/bin/pint --test "$(CFILE)"
+# --- Core targets ---
+ai-lint:
+	@$(AI_RUN) lint
+
+ai-pint:
+	@$(AI_RUN) pint
+
+ai-pint-check:
+	@$(AI_RUN) pint-check
+
 ai-check: ai-lint ai-pint
-ai-test:       ; @$(EXEC) vendor/bin/phpunit --do-not-cache-result $(TEST)
 
-# --- Artisan SAFE: chỉ allow-list, AI gọi tự do ---
-ai-artisan-safe: ; @$(call check_artisan_allow) $(EXEC) php artisan $(CMD)
+ai-test:
+	@$(AI_RUN) test
 
-# --- Artisan UNSAFE: KHÔNG cho AI gọi tự động ---
-# Target này tồn tại để người dùng chạy tay khi cần.
-# settings.json KHÔNG cấp quyền cho target này.
-# Ví dụ: make -f Makefile.ai ai-artisan-unsafe CMD="migrate"
-ai-artisan-unsafe: ; @echo "⚠️ Lệnh unsafe — chạy trong container:" && echo "  docker compose exec -T hrm-api php artisan $(CMD)" && $(EXEC) php artisan $(CMD)
+# --- Fixed read-only targets ---
+ai-php-version:
+	@$(AI_RUN) php-version
 
-# --- Convenience targets (không cần argument) ---
-ai-php-version: ; @$(EXEC) php -v
-ai-route-list:  ; @$(EXEC) php artisan route:list $(ARGS)
+ai-route-list:
+	@$(AI_RUN) route-list
+
+ai-migrate-status:
+	@$(AI_RUN) migrate-status
+
+ai-about:
+	@$(AI_RUN) about
+
+ai-event-list:
+	@$(AI_RUN) event-list
+
+# --- Removed raw-command targets ---
+ai-artisan-safe:
+	@echo "❌ ai-artisan-safe CMD=... đã bị tắt để tránh command injection." >&2
+	@echo "Dùng target cố định: ai-route-list, ai-migrate-status, ai-about, ai-event-list." >&2
+	@exit 2
+
+ai-artisan-unsafe:
+	@echo "❌ ai-artisan-unsafe CMD=... đã bị tắt khỏi tooling tự động." >&2
+	@echo "Nếu thật sự cần lệnh khác, người dùng chạy tay trong container sau khi kiểm tra rủi ro." >&2
+	@exit 2

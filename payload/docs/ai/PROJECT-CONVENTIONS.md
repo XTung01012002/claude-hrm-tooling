@@ -133,15 +133,16 @@ Response được định nghĩa ở `source/bootstrap/app.php` + `ApiBaseContro
 
 ## §7. Lệnh & môi trường (QUAN TRỌNG — local ≠ Docker)
 
-- **Môi trường chuẩn là Docker container `hrm-api`**. Host PHP có thể mới hơn nên **không dùng làm chuẩn verify**; version pin gần nhất ở §12 và phải kiểm tra lại bằng `ai-php`.
+- **Môi trường chuẩn là Docker container `hrm-api`**. Host PHP có thể mới hơn nên **không dùng làm chuẩn verify**; version pin gần nhất ở §12 và phải kiểm tra lại bằng `ai-php-version`.
 - **Không chạy trực tiếp trên host**: `php`, `composer`, `php artisan`, `vendor/bin/phpunit`, `vendor/bin/pint` khi kiểm tra code. Host PHP mới hơn có thể lint pass syntax không tương thích PHP 8.2.
 - **Lệnh chuẩn cho AI/agent**:
-  - Syntax PHP 8.2: `make -f Makefile.ai ai-lint FILE=source/path/to/File.php`
-  - Format 1 file: `make -f Makefile.ai ai-pint FILE=source/path/to/File.php`
-  - Format + lint 1 file: `make -f Makefile.ai ai-check FILE=source/path/to/File.php`
-  - Unit test: `make -f Makefile.ai ai-test TEST=tests/Unit/XTest.php`
-  - Artisan: `make -f Makefile.ai ai-artisan CMD="route:list"`
-  - Kiểm PHP container: `make -f Makefile.ai ai-php CMD="-v"`
+  - Syntax PHP 8.2: `AI_FILE=source/path/to/File.php make -f Makefile.ai ai-lint`
+  - Format 1 file: `AI_FILE=source/path/to/File.php make -f Makefile.ai ai-pint`
+  - Format + lint 1 file: `AI_FILE=source/path/to/File.php make -f Makefile.ai ai-check`
+  - Unit test: `AI_TEST=tests/Unit/XTest.php make -f Makefile.ai ai-test`
+  - Route list: `make -f Makefile.ai ai-route-list` hoặc `AI_ROUTE_PATH=api/v1/... make -f Makefile.ai ai-route-list`
+  - Migrate status: `make -f Makefile.ai ai-migrate-status`
+  - Kiểm PHP container: `make -f Makefile.ai ai-php-version`
 - Composer/deps vẫn chạy trong container (`make shell` → `composer install` → `make copy-vendor`) hoặc dùng các target composer sẵn có của `Makefile`.
 
 ---

@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- Thêm reviewer độc lập `/review-vs-plan` cho Claude Code, Codex và Antigravity: đối chiếu từng mục Plan cuối với code thật, tách thay đổi ngoài Plan khỏi finding chất lượng và kiểm tra bằng chứng test.
+
+### Security
+- Replace raw `CMD`/`ARGS` Makefile execution with fixed Docker targets and a validated `.claude/scripts/ai-docker.sh` wrapper.
+- Remove Claude auto-allow wildcard permissions for Makefile targets that accept user input.
+- Disable raw `ai-artisan-safe CMD=...` and `ai-artisan-unsafe CMD=...` targets.
+- Move Makefile.ai file/test/path inputs to env-prefix form (`AI_FILE=... make ...`, `AI_TEST=... make ...`) to avoid GNU Make command-line variable expansion.
+- Block old Makefile.ai command-line variables (`FILE=`, `TEST=`, `CMD=`, `ARGS=`, `ROUTE_PATH=`) in the Bash PreToolUse guard.
+
+### Fixed
+- Strict test hook now fails closed when related tests are found but Docker, Makefile.ai, or PHPUnit execution is unavailable.
+- `sync-from-project.sh` rejects invalid mode typos instead of treating them as apply mode.
+- `sync-from-project.sh` now mirrors `.claude/scripts` with the rest of the Claude tooling.
+- `sync-from-project.sh --dry-run` no longer fails just because the tooling repo has uncommitted changes.
+- `install.sh` validates `jq`/JSON before copying, logs the exact backup filename, excludes `*.bak.*`, and marks installed scripts executable.
+- `/implement AUTO` no longer contradicts itself by always stopping after the plan.
+- API docs and convention prompts now use fixed route-list targets instead of the removed raw artisan command.
+
+### Changed
+- Tách convention bền vững khỏi snapshot dễ thay đổi; thêm ngày và HRM source commit đã verify.
+- Sửa mô tả Queue/Horizon theo từng environment và làm rõ queue connection Redis.
+- Đồng bộ response envelope với exception renderer thật; bổ sung taxonomy exception và quy ước i18n.
+- Bổ sung cache key/TTL/invalidation/store semantics; bỏ TODO `preserveRejectedStatus` khỏi source of truth.
+- Đồng bộ `CLAUDE.md`, `AGENTS.md` và các prompt liên quan; runtime version chuyển thành snapshot cần re-verify.
+- Làm rõ phạm vi tài liệu; Git branch/commit/PR workflow tiếp tục theo quy định team hoặc prompt riêng.
+
 ## [1.6.0] - 2026-07-12
 
 ### Security
@@ -37,19 +66,6 @@ All notable changes to this project will be documented in this file.
 - **`/api-docs`** nâng cấp: thêm mục "Lưu ý cho Frontend" bắt buộc (nullable fields, enum values, idempotency, reload, timezone, retry, side effects) + mục "Ví dụ gọi API" tùy chọn.
 - Cập nhật `CLAUDE.md` và `AGENTS.md` — pointer cho 11+ slash commands.
 - Cập nhật `HUONG-DAN-SU-DUNG.md` — bảng tham chiếu nhanh + ma trận tính năng mới.
-
-## [Unreleased]
-
-### Added
-- Thêm reviewer độc lập `/review-vs-plan` cho Claude Code, Codex và Antigravity: đối chiếu từng mục Plan cuối với code thật, tách thay đổi ngoài Plan khỏi finding chất lượng và kiểm tra bằng chứng test.
-
-### Changed
-- Tách convention bền vững khỏi snapshot dễ thay đổi; thêm ngày và HRM source commit đã verify.
-- Sửa mô tả Queue/Horizon theo từng environment và làm rõ queue connection Redis.
-- Đồng bộ response envelope với exception renderer thật; bổ sung taxonomy exception và quy ước i18n.
-- Bổ sung cache key/TTL/invalidation/store semantics; bỏ TODO `preserveRejectedStatus` khỏi source of truth.
-- Đồng bộ `CLAUDE.md`, `AGENTS.md` và các prompt liên quan; runtime version chuyển thành snapshot cần re-verify.
-- Làm rõ phạm vi tài liệu; Git branch/commit/PR workflow tiếp tục theo quy định team hoặc prompt riêng.
 
 ## [1.4.0] - 2026-07-01
 

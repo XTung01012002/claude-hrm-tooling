@@ -15,7 +15,7 @@ if [ ! -f "$REPO_ROOT/Makefile.ai" ]; then
   warn "File Makefile.ai chưa được tạo. Hãy đảm bảo bạn đã cài đặt bản cập nhật mới nhất của tooling."
 else
   # Kiểm tra docker container
-  if ! make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-php CMD="-v" >/dev/null 2>&1; then
+  if ! make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-php-version >/dev/null 2>&1; then
      warn "Không thể truy cập container \`hrm-api\` qua Docker Compose."
      warn "Hooks lint/format/test sẽ BỎ QUA (KHÔNG fallback sang host PHP). Code sẽ không được tự kiểm tra."
      warn "👉 Hãy bật Docker container để AI tự kiểm tra được cú pháp chuẩn."
