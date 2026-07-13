@@ -42,6 +42,31 @@ umask 077
 
 validate_parent_chain() {
   local path="$1"
+  local base="${2:-}"
+  
+  if [ -n "$base" ]; then
+    if [[ "$path" == "$base/"* ]]; then
+      local rel="${path#$base/}"
+      local current="$base"
+      IFS='/' read -ra PARTS <<< "$rel"
+      local max=$(( ${#PARTS[@]} - 1 ))
+      for ((i=0; i<max; i++)); do
+        local part="${PARTS[i]}"
+        [ -z "$part" ] && continue
+        current="${current%/}/$part"
+        if [ -L "$current" ]; then
+          printf 'Parent component is a symlink: %s\n' "$current" >&2
+          return 1
+        fi
+        if [ -e "$current" ] && [ ! -d "$current" ]; then
+          printf 'Parent component is not a directory: %s\n' "$current" >&2
+          return 1
+        fi
+      done
+      return 0
+    fi
+  fi
+
   local current=""
   IFS='/' read -ra PARTS <<< "$path"
   local max=$(( ${#PARTS[@]} - 1 ))
@@ -64,8 +89,9 @@ validate_parent_chain() {
 validate_regular_file_target() {
   local path="$1"
   local label="$2"
-
-  validate_parent_chain "$path" || return 1
+  local base="${3:-}"
+  
+  validate_parent_chain "$path" "$base" || return 1
 
   if [ -L "$path" ]; then
     printf 'Unsafe %s symlink: %s\n' "$label" "$path" >&2
@@ -80,7 +106,7 @@ validate_regular_file_target() {
 
 # PAT Guard preflight check
 SETTINGS_FILE="$TARGET/.claude/settings.local.json"
-validate_regular_file_target "$SETTINGS_FILE" "settings.local.json" || exit 1
+validate_regular_file_target "$SETTINGS_FILE" "settings.local.json" "$TARGET" || exit 1
 
 if [ -f "$SETTINGS_FILE" ]; then
   if grep -q -E "ghp_|github_pat_" "$SETTINGS_FILE" 2>/dev/null; then
@@ -222,7 +248,7 @@ for rel in "${FILES_TO_INSTALL[@]}"; do
   dest="$TARGET/$rel"
   
   # 1. Chặn parent symlink escape và parent non-directory
-  if ! validate_parent_chain "$dest"; then
+  if ! validate_parent_chain "$dest" "$TARGET"; then
     SYMLINK_ESCAPES=$((SYMLINK_ESCAPES + 1))
   elif [ -L "$dest" ]; then
     echo "❌ CẢNH BÁO: Phát hiện symlink tại đường dẫn đích (nguy cơ path traversal): $rel" >&2
@@ -243,10 +269,8 @@ ALIAS_PATHS=(
   ".claude/skills"
 )
 
-
-
 for rel in "${ALIAS_PATHS[@]}"; do
-  if ! validate_parent_chain "$TARGET/$rel"; then
+  if ! validate_parent_chain "$TARGET/$rel" "$TARGET"; then
     SYMLINK_ESCAPES=$((SYMLINK_ESCAPES + 1))
   fi
 done
@@ -338,7 +362,7 @@ chmod +x "$TARGET/.claude/scripts/"*.sh 2>/dev/null || true
 # (Tùy chọn) Codex global slash commands: ~/.codex/prompts (dùng chung nội dung với .claude/commands, có namespace)
 if [ -d "$HOME/.codex" ]; then
   CODEX_PROMPTS_DIR="$HOME/.codex/prompts"
-  validate_parent_chain "$CODEX_PROMPTS_DIR/.keep" || exit 1
+  validate_parent_chain "$CODEX_PROMPTS_DIR/.keep" "$HOME" || exit 1
   if [ -L "$CODEX_PROMPTS_DIR" ]; then
     echo "Unsafe Codex prompts symlink: $CODEX_PROMPTS_DIR" >&2
     exit 1
