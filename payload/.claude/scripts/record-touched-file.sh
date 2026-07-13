@@ -103,4 +103,6 @@ fi
 
 chmod 600 "$MANIFEST_FILE" 2>/dev/null || true
 
+touch "$MANIFEST_DIR/session-had-edits" 2>/dev/null || true
+
 exit 0

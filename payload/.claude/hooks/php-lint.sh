@@ -93,12 +93,17 @@ container_up() {
 
 # Kiểm tra Docker — KHÔNG fallback sang host
 if ! has_make_target; then
-  echo "[php-lint hook] ⚠️ Makefile.ai không tồn tại — bỏ qua lint/format. Chạy tay: AI_FILE=$REL make -f Makefile.ai ai-check" >&2
+  echo "[php-lint hook] ⚠️ Makefile.ai không tồn tại — bỏ qua lint/format." >&2
+  echo "Danh sách file:" >&2
+  printf '%s\n' "$lint_files" | sed 's/^/  - /' >&2
+  echo "Chạy tay: AI_FILE=<file> make -f Makefile.ai ai-check" >&2
   exit 0
 fi
 
 if ! container_up; then
-  echo "[php-lint hook] ⚠️ Container hrm-api không chạy — bỏ qua lint/format. Bật Docker rồi chạy tay: AI_FILE=$REL make -f Makefile.ai ai-check" >&2
+  echo "[php-lint hook] ⚠️ Container hrm-api không chạy — bỏ qua lint/format." >&2
+  echo "Bật Docker rồi chạy tay cho các file sau:" >&2
+  printf '%s\n' "$lint_files" | sed 's/^/  - /' >&2
   exit 0
 fi
 

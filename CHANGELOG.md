@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.7.2] - 2026-07-13
+
+### Fixed
+- Sửa lỗi crash `session-start.sh` khi `TOUCHED_FILES` unbound, đồng thời dọn sạch snapshot xử lý cũ và khôi phục các validation chống path traversal/symlink escape.
+- Tối ưu `run-related-tests.sh` fallback: sử dụng marker `session-had-edits` thay vì hạ cấp mù quáng xuống advisory, chặn việc chạy test thừa thãi trên các thay đổi không do AI tạo ra trong phiên.
+- Sửa `block-host-tools.sh` bắt sót edge case khi tool được gọi qua command substitution với trailing backtick.
+
 ## [1.7.1] - 2026-07-13
 
 ### Fixed

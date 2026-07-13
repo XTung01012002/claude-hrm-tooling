@@ -108,9 +108,15 @@ check_dangerous() {
 
 check_dangerous_substitution() {
   # Command substitution executes on the host before docker/make receives argv.
-  printf '%s' "$1" | grep -qE '\$\([^)]*'"$TOOL_WORD" ||
-    printf '%s' "$1" | grep -qE '`[^`]*'"$TOOL_WORD" ||
-    printf '%s' "$1" | grep -qE '[<>]\([^)]*'"$TOOL_WORD"
+  local word_bound_pre='(^|[[:space:];|&(/\`"'"'"'])'
+  local word_bound_post='([[:space:])|;&"'\''`]|$)'
+  local safe_tool_word="${word_bound_pre}${TOOL_WORD}${word_bound_post}"
+  local start_tool_word="(\\\$\(|\`|[<>]\()${TOOL_WORD}${word_bound_post}"
+  
+  printf '%s' "$1" | grep -qE '\$\([^)]*'"$safe_tool_word" ||
+    printf '%s' "$1" | grep -qE '`[^`]*'"$safe_tool_word" ||
+    printf '%s' "$1" | grep -qE '[<>]\([^)]*'"$safe_tool_word" ||
+    printf '%s' "$1" | grep -qE "$start_tool_word"
 }
 
 strip_safe_contexts() {

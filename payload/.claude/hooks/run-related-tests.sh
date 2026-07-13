@@ -222,8 +222,12 @@ collect_changed_once() {
   fi
 
   # Fallback: nếu không có touched files, đọc git diff để báo chính xác hơn.
-  # strict không tự hạ xuống advisory; provenance không đáng tin cậy thì fail-closed.
-  echo "[run-related-tests hook] ⚠️ Không có file touched. Fallback đọc từ git diff." >&2
+  if [ -f "$REPO_ROOT/.claude/tmp/session-had-edits" ]; then
+    echo "[run-related-tests hook] ⚠️ Không có file touched nhưng có marker AI đã sửa. Fallback đọc từ git diff." >&2
+  else
+    echo "[run-related-tests hook] ⚠️ Không có file touched và không có marker. Có thay đổi .php ngoài phiên AI — không tự verify." >&2
+    advisory_completed
+  fi
 
   append_diff_paths ""
   append_diff_paths "--cached"
