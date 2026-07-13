@@ -1,0 +1,38 @@
+name: Security tests
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+
+permissions:
+  contents: read
+
+jobs:
+  tooling-security:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate shell syntax
+        shell: bash
+        run: |
+          bash -n install.sh
+          bash -n payload/.claude/hooks/*.sh
+          bash -n payload/.claude/scripts/*.sh
+          bash -n tests/*.sh
+
+      - name: Run security tests
+        shell: bash
+        run: ./tests/tooling-security.sh
+
+      - name: Run prompt consistency tests
+        shell: bash
+        run: ./tests/tooling-prompts.sh

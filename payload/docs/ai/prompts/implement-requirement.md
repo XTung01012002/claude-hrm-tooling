@@ -150,17 +150,21 @@ Nếu có giả định cần xác nhận (bước 5) làm đổi behavior/schem
 ### Bước 10: Chạy Quality Gate
 
 ```bash
-# Lint syntax PHP 8.2
-AI_FILE=source/path/to/File.php make -f Makefile.ai ai-lint
+# 1) Lấy danh sách toàn bộ PHP file mới/sửa từ diff/touched files.
+# 2) Lặp lint syntax PHP 8.2 cho từng file đó.
+AI_FILE=source/path/to/File1.php make -f Makefile.ai ai-lint
+AI_FILE=source/path/to/File2.php make -f Makefile.ai ai-lint
 
-# Format
-AI_FILE=source/path/to/File.php make -f Makefile.ai ai-pint
+# 3) Lặp format cho từng PHP file mới/sửa.
+AI_FILE=source/path/to/File1.php make -f Makefile.ai ai-pint
+AI_FILE=source/path/to/File2.php make -f Makefile.ai ai-pint
 
-# Test
+# 4) Chạy mọi test mới/sửa và test liên quan đã xác định.
 AI_TEST=tests/Unit/XTest.php make -f Makefile.ai ai-test
+AI_TEST=tests/Unit/YTest.php make -f Makefile.ai ai-test
 ```
 
-**Bắt buộc** chạy cả 3 lệnh. Nếu fail → sửa → chạy lại.
+**Bắt buộc** chạy lint và Pint cho mọi PHP file mới/sửa, rồi chạy mọi test mới/sửa và test liên quan. Chỉ ghi `✅` khi mọi command đã chạy thật với exit code `0`; nếu bỏ qua file/test nào, báo rõ lý do. Nếu fail → sửa → chạy lại.
 
 ---
 
