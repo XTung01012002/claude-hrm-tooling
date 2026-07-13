@@ -30,5 +30,7 @@ Sau phần code, xuất mục `Next integration steps` gồm:
 - Route/Controller cần thêm nếu feature được expose qua HTTP.
 - Test cần tạo.
 
-Sau khi sinh code xong, hãy chạy lệnh sau để tự động xác thực cú pháp:
-`AI_FILE=source/... make -f Makefile.ai ai-lint`
+Sau khi sinh code xong:
+- Thu thập toàn bộ PHP file vừa tạo.
+- Chạy `ai-check` hoặc `ai-lint` + `ai-pint` cho từng file.
+- Không tuyên bố thành công nếu bất kỳ file nào chưa được kiểm tra; nếu môi trường không chạy được, báo rõ file nào chưa verify và lý do.

@@ -2,7 +2,7 @@
 
 > Prompt trung lập — dùng được với mọi AI. Trong Claude Code gọi qua `/refactor`. Với AI khác: dán file này + code cần xử lý.
 >
-> **Đọc trước & tuân thủ:** `docs/ai/PROJECT-CONVENTIONS.md` — file đó chứa toàn bộ RULE chi tiết (§0 cấm bịa, §1 reuse+DRY, §2 layering, §4 ORM, §8 multi-tenancy, §9 transaction/webhook, §10 list, §11 giữ behavior). Prompt này chỉ là **quy trình + format**, không lặp lại rule.
+> **Đọc trước & tuân thủ:** `docs/ai/PROJECT-CONVENTIONS.md` — file đó chứa toàn bộ RULE chi tiết (§0 cấm bịa, §1 reuse+DRY, §2 layering, §4 ORM, §8 multi-tenancy, §9 transaction/webhook, §10 list, §11 giữ behavior). Dùng `docs/ai/prompts/_shared/review-contract.md` cho severity. Prompt này chỉ là **quy trình + format**, không lặp lại rule.
 
 ## Kích hoạt
 Khi người dùng gửi code PHP/Laravel kèm: `refactor`, `tối ưu`, `kiểm tra giúp`, `gửi bản hoàn chỉnh`, hoặc tương tự.
@@ -34,7 +34,7 @@ Mọi nhận định phải truy được về code thật (đọc/grep). Không
 <1-2 câu: có/không vấn đề nghiêm trọng>
 
 ## Vấn đề
-### [🔴/🟡/🟢] <tên vấn đề>
+### [BLOCKER/IMPORTANT/SUGGESTION/QUESTION] <tên vấn đề>
 - Vị trí: `file.php:line`
 - Vấn đề: <mô tả, đã verify bằng ...>
 - Ảnh hưởng:
@@ -63,6 +63,7 @@ Mọi nhận định phải truy được về code thật (đọc/grep). Không
 ```
 
 ## Mức độ
-- **🔴 Cao**: lỗi production / security / sai hoặc mất dữ liệu / rò rỉ tenant.
-- **🟡 Trung bình**: bug edge-case, khó maintain, performance kém.
-- **🟢 Thấp**: style, readability, cleanup nhỏ.
+- **BLOCKER**: lỗi production / security / sai hoặc mất dữ liệu / rò rỉ tenant / phá public contract.
+- **IMPORTANT**: bug edge-case, regression, maintainability hoặc performance có tác động cụ thể.
+- **SUGGESTION**: style, readability, cleanup nhỏ hoặc convention không gây bug đã biết.
+- **QUESTION**: cần author/owner xác minh trước khi kết luận.

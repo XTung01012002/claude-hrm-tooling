@@ -22,7 +22,7 @@ File này chỉ tóm tắt; chi tiết + lý do nằm ở đó.
 - Lệnh chuẩn cho AI: `AI_FILE=source/... make -f Makefile.ai ai-lint`, `AI_FILE=source/... make -f Makefile.ai ai-pint`, `AI_TEST=tests/Unit/XTest.php make -f Makefile.ai ai-test`, `make -f Makefile.ai ai-route-list`, `AI_ROUTE_PATH=api/v1/... make -f Makefile.ai ai-route-list`, `make -f Makefile.ai ai-php-version`. Lệnh ghi dữ liệu (migrate, seed, cache:clear...) phải chạy tay.
 
 ## Slash commands & Skills (Backed by `docs/ai/prompts/*.md`)
-- `/review` → review diff theo checklist, verdict PASS/FAIL (`docs/ai/prompts/review.md`).
+- `/review` → review diff theo checklist, verdict `PASS` / `PASS_WITH_CONCERNS` / `REQUEST_CHANGES` / `BLOCKED_INSUFFICIENT_CONTEXT` (`docs/ai/prompts/review.md`).
 - `/review-vs-plan` → reviewer độc lập đối chiếu implementation với Plan cuối, thay đổi ngoài Plan và chất lượng code (`docs/ai/prompts/review-vs-plan.md`).
 - `/implement` → triển khai yêu cầu theo quy trình 10 bước — phân tích trước, code sau (`docs/ai/prompts/implement-requirement.md`).
 - `/scaffold-test` → sinh unit test Mockery, test matrix 14 nhóm (`docs/ai/prompts/generate-test.md`).

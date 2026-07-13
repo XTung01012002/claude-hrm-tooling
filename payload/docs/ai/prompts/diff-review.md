@@ -52,10 +52,10 @@ Input sẽ bao gồm:
 ### Bước 5: Kết luận có thể commit hay chưa
 
 ```
-### Review Status: ✅ PASS | ⚠️ PASS_WITH_CONCERNS | ❌ REQUEST_CHANGES
+### Review Status: ✅ PASS | ⚠️ PASS_WITH_CONCERNS | ❌ REQUEST_CHANGES | 🚫 BLOCKED_INSUFFICIENT_CONTEXT
 ```
 
-Nếu `REQUEST_CHANGES`: liệt kê cụ thể phải sửa gì trước khi commit.
+Nếu `REQUEST_CHANGES` hoặc `BLOCKED_INSUFFICIENT_CONTEXT`: liệt kê cụ thể phải sửa/bổ sung gì trước khi commit.
 
 ### Bước 6: Sinh branch name + commit message + PR summary
 
@@ -70,7 +70,7 @@ Không tự định nghĩa verdict mới. Dùng nguyên verdict và Merge blocki
 ```markdown
 ## Review Diff
 
-### Review Status: ✅ PASS | ⚠️ PASS_WITH_CONCERNS | ❌ REQUEST_CHANGES
+### Review Status: ✅ PASS | ⚠️ PASS_WITH_CONCERNS | ❌ REQUEST_CHANGES | 🚫 BLOCKED_INSUFFICIENT_CONTEXT
 
 ### Change Type: fix | feat | refactor | test | docs | chore
 
