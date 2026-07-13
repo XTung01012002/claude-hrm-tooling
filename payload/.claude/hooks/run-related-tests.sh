@@ -129,6 +129,10 @@ cleanup_all() {
         rm -f -- "$GIT_ERRORS_TMP"
     fi
 
+    if [ -n "${DELETED_FILES_TMP:-}" ]; then
+        rm -f -- "$DELETED_FILES_TMP"
+    fi
+
     exit "$status"
 }
 
@@ -154,6 +158,7 @@ git -C "$REPO_ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1 ||
 
 CHANGED_FILES_TMP="$(mktemp "${TMPDIR:-/tmp}/run-related-tests.changed.XXXXXX")"
 GIT_ERRORS_TMP="$(mktemp "${TMPDIR:-/tmp}/run-related-tests.git-errors.XXXXXX")"
+DELETED_FILES_TMP="$(mktemp "${TMPDIR:-/tmp}/run-related-tests.deleted.XXXXXX")"
 
 has_make_target() {
   [ -f "$REPO_ROOT/Makefile.ai" ]
@@ -194,7 +199,7 @@ collect_changed_once() {
   # Snapshot mechanism: đổi tên file để tránh làm mất ghi nhận mới trong khi test đang chạy
   TOUCHED_FILES="$REPO_ROOT/.claude/tmp/touched-files"
   SNAPSHOT_FILE="$TOUCHED_FILES.processing.$$"
-  
+
   if [ -s "$TOUCHED_FILES" ]; then
     mv "$TOUCHED_FILES" "$SNAPSHOT_FILE" 2>/dev/null || true
   fi
@@ -231,12 +236,63 @@ collect_changed_once() {
   fi
 }
 
+collect_deleted_once() {
+  : > "$DELETED_FILES_TMP"
+
+  git -C "$REPO_ROOT" diff --name-only --diff-filter=D >> "$DELETED_FILES_TMP" 2>>"$GIT_ERRORS_TMP" ||
+    unverified "Không thể thu thập danh sách file deleted từ Git: $(cat "$GIT_ERRORS_TMP")"
+
+  git -C "$REPO_ROOT" diff --cached --name-only --diff-filter=D >> "$DELETED_FILES_TMP" 2>>"$GIT_ERRORS_TMP" ||
+    unverified "Không thể thu thập danh sách file deleted staged từ Git: $(cat "$GIT_ERRORS_TMP")"
+
+  sort -u -o "$DELETED_FILES_TMP" "$DELETED_FILES_TMP"
+}
+
 # Danh sách file PHP đã đổi (unstaged + staged + untracked)
 collect_changed() {
   cat "$CHANGED_FILES_TMP"
 }
 
+collect_deleted() {
+  cat "$DELETED_FILES_TMP"
+}
+
 collect_changed_once
+collect_deleted_once
+
+changed_prod_bases="$(collect_changed | sort -u | grep '^source/.*\.php$' | grep -v '^source/tests/' | sed -E 's#.*/([^/]+)\.php$#\1#' | sort -u || true)"
+related_deleted_tests=""
+
+if [ -n "$changed_prod_bases" ]; then
+  while IFS= read -r deleted_test; do
+    [ -z "$deleted_test" ] && continue
+    case "$deleted_test" in
+      source/tests/*Test.php) ;;
+      *) continue ;;
+    esac
+
+    deleted_base="$(basename "$deleted_test" Test.php)"
+    if printf '%s\n' "$changed_prod_bases" | grep -Fxq "$deleted_base"; then
+      related_deleted_tests="${related_deleted_tests}
+${deleted_test}"
+    fi
+  done < <(collect_deleted)
+fi
+
+related_deleted_tests="$(printf '%s\n' "$related_deleted_tests" | sed '/^$/d' | sort -u)"
+if [ -n "$related_deleted_tests" ]; then
+  {
+    echo "[run-related-tests hook] ⚠️ UNVERIFIED — test liên quan đã bị xóa trong diff:"
+    printf '%s\n' "$related_deleted_tests" | sed 's/^/  - /'
+    echo ""
+    echo "Strict verification không coi việc xóa test liên quan là an toàn."
+    if [ "$TEST_MODE" = "strict" ]; then
+      echo "[mode=strict] Chặn: test coverage có thể đã giảm."
+    fi
+  } >&2
+  [ "$TEST_MODE" = "strict" ] && verification_failed
+  advisory_completed
+fi
 
 # Tương thích bash 3.2 (macOS) — không dùng associative array.
 # Gom ứng viên test (đường dẫn tương đối source/), mỗi dòng 1 file.
@@ -313,8 +369,11 @@ fi
 
 while IFS= read -r test_file; do
   [ -z "$test_file" ] && continue
-  if ! AI_TEST="$test_file" make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-test; then
-    echo "[run-related-tests hook] Unit test FAILED: ${test_file}" >&2
+  if ! TEST_OUT="$(AI_TEST="$test_file" make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-test 2>&1)"; then
+    {
+      echo "[run-related-tests hook] Unit test FAILED: ${test_file}"
+      printf '%s\n' "$TEST_OUT"
+    } >&2
     verification_failed
   fi
 done < <(printf '%s\n' "$tests_to_run" | tr ' ' '\n' | sed '/^$/d')

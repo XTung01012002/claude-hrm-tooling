@@ -152,10 +152,12 @@ Không gắn severity chỉ vì loại lỗi xuất hiện trong checklist. Ví 
 
 ## 6. Verdict
 
-- `✅ PASS`: mọi mục Plan đã được verify, không có finding chặn merge và test đủ.
-- `⚠️ PASS_WITH_CONCERNS`: implementation cơ bản đúng nhưng còn IMPORTANT không chặn merge, thiếu test, hoặc điều kiện/rủi ro cần nêu rõ.
-- `❌ REQUEST_CHANGES`: còn sai lệch Plan hoặc finding BLOCKER/IMPORTANT có `Merge blocking: Yes`.
-- `🚫 BLOCKED_INSUFFICIENT_CONTEXT`: thiếu Plan/code/test/context để kết luận an toàn.
+Áp dụng đúng thứ tự bất giao nhau từ `docs/ai/prompts/_shared/review-contract.md`:
+
+- `🚫 BLOCKED_INSUFFICIENT_CONTEXT`: thiếu Plan/code/test/diff/base/context để kết luận an toàn.
+- `❌ REQUEST_CHANGES`: còn sai lệch Plan chặn merge hoặc có ít nhất một finding `Merge blocking: Yes`.
+- `⚠️ PASS_WITH_CONCERNS`: không có finding chặn merge nhưng còn finding không chặn, thiếu test hoặc điều kiện/rủi ro cần nêu rõ.
+- `✅ PASS`: mọi mục Plan đã được verify, không có finding actionable/rủi ro đáng kể và test đủ.
 
 Không đề xuất tính năng mới trong verdict. Ý tưởng cải tiến để riêng ở mục đề xuất ngoài phạm vi.
 

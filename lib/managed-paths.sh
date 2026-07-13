@@ -7,6 +7,7 @@
 MANAGED_PATHS=(
   "CLAUDE.md"
   "AGENTS.md"
+  "ai_workflows_reference.md"
   "Makefile.ai"
   "docs/ai"
   ".agents/hooks.json"

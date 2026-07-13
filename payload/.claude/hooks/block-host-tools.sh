@@ -38,7 +38,12 @@ block_host_tool() {
 }
 
 contains_makefile_ai() {
-  printf '%s' "$COMMAND" | grep -qE '(^|[[:space:];&|()]|/)(g?make)([[:space:]]|$|[^;&|()]*[[:space:]])[^;&|()]*Makefile\.ai'
+  local make_assign make_cmd env_prefix
+  make_assign='([A-Za-z_][A-Za-z0-9_]*=[^;&|()]+[[:space:]]+)*'
+  env_prefix='(env[[:space:]]+([^;&|()]+[[:space:]]+)*)?'
+  make_cmd='(/[^[:space:];&|()]*/)?g?make'
+
+  printf '%s' "$COMMAND" | grep -qE '(^|[;&|()])[[:space:]]*'"$make_assign""$env_prefix""$make_cmd"'([[:space:]]|$)[^;&|()]*Makefile\.ai'
 }
 
 is_safe_makefile_ai_command() {
@@ -59,6 +64,12 @@ is_safe_makefile_ai_command() {
 # GNU Make can execute host commands while parsing options, environment and
 # extra makefiles (`--eval`, `-f`, `MAKEFILES`, `env -S`, command-line vars).
 # If Makefile.ai is involved, allow only exact known-safe command shapes.
+if printf '%s' "$COMMAND" | grep -qE '(^|[;&|()])[[:space:]]*env[[:space:]]+-S[[:space:]][^;&|()]*Makefile\.ai'; then
+  echo "🚨 LỖI (PreToolUse Guard): Command Makefile.ai không khớp allow-list an toàn." >&2
+  echo "✅ Dùng đúng một shape, ví dụ: \`make -f Makefile.ai ai-about\`, \`AI_FILE=source/path/File.php make -f Makefile.ai ai-lint\`, hoặc \`AI_TEST=tests/Unit/XTest.php make -f Makefile.ai ai-test\`." >&2
+  exit 2
+fi
+
 if contains_makefile_ai; then
   if ! is_safe_makefile_ai_command; then
     echo "🚨 LỖI (PreToolUse Guard): Command Makefile.ai không khớp allow-list an toàn." >&2
@@ -70,18 +81,25 @@ fi
 # --- Patterns ---
 # Vị trí command = đầu dòng (^) hoặc sau command separator (; & | ()
 SEP='(^|[;&|()])'
-# Transparent wrappers: sudo php, env composer, time vendor/bin/phpunit, ...
-WRAP='((sudo|env|command|time)[[:space:]]+)*'
+# Assignment/wrapper prefixes thường gặp:
+#   FOO=bar php -v
+#   env FOO=bar php -v
+#   exec php -v / nohup php -v
+ASSIGN='([A-Za-z_][A-Za-z0-9_]*=[^[:space:];&|()]+[[:space:]]+)*'
+ENV_ARGS='([[:space:]]+(-[A-Za-z]+|--[A-Za-z-]+(=[^[:space:];&|()]+)?|[A-Za-z_][A-Za-z0-9_]*=[^[:space:];&|()]+))*'
+WRAP='(((sudo|command|time|exec|nohup)[[:space:]]+)|(env'"$ENV_ARGS"'[[:space:]]+))*'
+PHP_BIN='php([0-9]+(\.[0-9]+)?)?'
+COMPOSER_BIN='composer([0-9]+)?'
 
 # 1) Bare: php/composer ở vị trí command (có thể qua wrapper)
-PAT_BARE="${SEP}[[:space:]]*${WRAP}(php|composer)([[:space:]]|$)"
+PAT_BARE="${SEP}[[:space:]]*${ASSIGN}${WRAP}(${PHP_BIN}|${COMPOSER_BIN})([[:space:]]|$)"
 # 2) Vendor tools: bắt cả ./vendor, source/vendor
-PAT_VENDOR="${SEP}[[:space:]]*${WRAP}(\./|source/)*(vendor/bin/(phpunit|pint))([[:space:]]|$)"
+PAT_VENDOR="${SEP}[[:space:]]*${ASSIGN}${WRAP}(\./|source/)*(vendor/bin/(phpunit|pint))([[:space:]]|$)"
 # 3) Absolute path: /usr/bin/php, /opt/homebrew/bin/composer, ...
-PAT_ABSPATH="${SEP}[[:space:]]*${WRAP}/[^[:space:]]*/(php|composer|phpunit|pint)([[:space:]]|$)"
+PAT_ABSPATH="${SEP}[[:space:]]*${ASSIGN}${WRAP}/[^[:space:]]*/(${PHP_BIN}|${COMPOSER_BIN}|phpunit|pint)([[:space:]]|$)"
 
 ALL_PATS="$PAT_BARE|$PAT_VENDOR|$PAT_ABSPATH"
-TOOL_WORD='((/[^[:space:];&|()`"'"'"']*/)?(php|composer|phpunit|pint)|(\./|source/)*vendor/bin/(phpunit|pint))'
+TOOL_WORD='((/[^[:space:];&|()`"'"'"']*/)?(php([0-9]+(\.[0-9]+)?)?|composer([0-9]+)?|phpunit|pint)|(\./|source/)*vendor/bin/(phpunit|pint))'
 
 check_dangerous() {
   # Trả 0 (true) nếu chuỗi $1 chứa lệnh nguy hiểm ở vị trí command

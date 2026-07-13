@@ -68,7 +68,7 @@ fi
 PREFIX="${REPO_ROOT%/}/"
 case "$ABS" in
   "$PREFIX"*) REL="${ABS#$PREFIX}" ;;
-  *) 
+  *)
     printf '[record-touched-file] ⚠️ File %s is outside repository, rejected.\n' "$FILE_PATH" >&2
     exit 2
     ;;

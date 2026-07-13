@@ -30,6 +30,7 @@ Nếu file tài liệu đã tồn tại, đọc toàn bộ file rồi chỉ cậ
 
 - Nếu Controller dùng Resource/Mapper/Presenter thì shape của lớp đó là nguồn sự thật cao nhất.
 - Nếu không có lớp bọc: Query trả `Paginator`/collection dùng envelope **list**; Query trả một item hoặc Command/action dùng envelope **detail/action**.
+- Trước khi kết luận envelope, đọc `ApiBaseController` và renderer ở `source/bootstrap/app.php`. Nếu không verify được lớp bọc/envelope thật, ghi rõ `Chưa kiểm chứng` thay vì tự thêm field.
 - Không thêm `links`, `meta` hoặc field response nếu code/envelope thực tế không sinh ra chúng.
 
 ## Khuôn FE contract-only (theo đúng mẫu này)
@@ -47,8 +48,8 @@ Nếu file tài liệu đã tồn tại, đọc toàn bộ file rồi chỉ cậ
 <chọn "Query params" hoặc "Request body" cho đúng>
 
 | Trường | Kiểu | Bắt buộc | Mô tả |
-| ------ | ---- | -------- | ----- | ----------------------------------------------- |
-| ...    | ...  | ✅/❌    | ...   | (mọi ràng buộc lấy từ <Feature>Validation impl) |
+| ------ | ---- | -------- | ----- |
+| ...    | ...  | ✅/❌    | ...   |
 
 ```json
 // payload mẫu (giá trị thật/hợp lý; bỏ field hệ thống)

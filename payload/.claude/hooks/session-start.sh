@@ -5,14 +5,31 @@
 set -uo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
-cat >/dev/null 2>&1 || true
-
-# Xóa danh sách file đã chạm của phiên làm việc trước
-rm -f "$REPO_ROOT/.claude/tmp/touched-files"
-
 warn() {
   echo "⚠️ [Preflight] CẢNH BÁO: $1" >&2
 }
+
+cat >/dev/null 2>&1 || true
+
+# Xóa danh sách file đã chạm của phiên làm việc trước, nhưng chỉ sau khi
+# xác minh .claude/tmp không đi qua symlink và vẫn nằm trong repository.
+if ! . "$REPO_ROOT/.claude/scripts/validate-tooling-tmp.sh"; then
+  warn "Không thể xác minh an toàn thư mục .claude/tmp; từ chối cleanup touched-files."
+  exit 2
+fi
+
+TOUCHED_FILES="$REPO_ROOT/.claude/tmp/touched-files"
+if [ -L "$TOUCHED_FILES" ]; then
+  warn "touched-files là symlink; từ chối cleanup để tránh xóa ngoài repository."
+  exit 2
+fi
+
+if [ -e "$TOUCHED_FILES" ] && [ ! -f "$TOUCHED_FILES" ]; then
+  warn "touched-files không phải regular file; từ chối cleanup."
+  exit 2
+fi
+
+rm -f -- "$TOUCHED_FILES"
 
 if ! command -v jq >/dev/null 2>&1; then
   warn "Không tìm thấy lệnh 'jq'. Một số hooks bảo mật sẽ bị fail-open (bỏ qua kiểm tra)."

@@ -120,7 +120,9 @@ Tổng kết: `N` blocker, `N` important, `N` suggestion, `N` question. Ngoài p
 ```
 
 ### Quy tắc verdict
-- **✅ PASS** — không có BLOCKER, không có IMPORTANT bắt buộc sửa (Merge blocking: Yes), test đủ.
-- **⚠️ PASS_WITH_CONCERNS** — không có BLOCKER, nhưng có IMPORTANT (Merge blocking: No) hoặc thiếu test.
-- **❌ REQUEST_CHANGES** — có ≥1 BLOCKER hoặc IMPORTANT bắt buộc sửa (Merge blocking: Yes) trước merge.
-- **🚫 BLOCKED_INSUFFICIENT_CONTEXT** — thiếu code/test/context để kết luận.
+Áp dụng đúng thứ tự bất giao nhau từ `docs/ai/prompts/_shared/review-contract.md`:
+
+- **🚫 BLOCKED_INSUFFICIENT_CONTEXT** — thiếu code/test/diff/base/context để kết luận an toàn.
+- **❌ REQUEST_CHANGES** — có ít nhất một finding `Merge blocking: Yes`.
+- **⚠️ PASS_WITH_CONCERNS** — không có finding chặn merge, nhưng còn finding không chặn, thiếu test hoặc rủi ro/giả định cần nêu rõ.
+- **✅ PASS** — không có finding actionable, không còn rủi ro/giả định đáng kể, và test đủ.
