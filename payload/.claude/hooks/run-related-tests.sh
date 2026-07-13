@@ -26,9 +26,11 @@ CONSUMED_SNAPSHOTS=()
 
 cleanup_consumed_snapshots() {
   local f
-  for f in "${CONSUMED_SNAPSHOTS[@]}"; do
-    rm -f -- "$f" 2>/dev/null || true
-  done
+  if [ ${#CONSUMED_SNAPSHOTS[@]} -gt 0 ]; then
+    for f in "${CONSUMED_SNAPSHOTS[@]}"; do
+      rm -f -- "$f" 2>/dev/null || true
+    done
+  fi
 }
 
 verification_succeeded() {
@@ -214,18 +216,19 @@ collect_changed_once() {
     return
   fi
 
-  # Fallback: nếu không có touched files, dùng git diff nhưng chuyển sang advisory 
-  # để tránh chặn phiên làm việc do file dirty của user từ trước.
-  if [ "$TEST_MODE" = "strict" ]; then
-    echo "[run-related-tests hook] ⚠️ Không có file touched. Fallback đọc từ git diff (chuyển sang advisory mode)." >&2
-    TEST_MODE="advisory"
-  fi
+  # Fallback: nếu không có touched files, đọc git diff để báo chính xác hơn.
+  # strict không tự hạ xuống advisory; provenance không đáng tin cậy thì fail-closed.
+  echo "[run-related-tests hook] ⚠️ Không có file touched. Fallback đọc từ git diff." >&2
 
   append_diff_paths ""
   append_diff_paths "--cached"
 
   git -C "$REPO_ROOT" ls-files --others --exclude-standard >> "$CHANGED_FILES_TMP" 2>>"$GIT_ERRORS_TMP" ||
     unverified "Không thể thu thập danh sách file thay đổi từ Git: $(cat "$GIT_ERRORS_TMP")"
+
+  if [ "$TEST_MODE" = "strict" ] && grep -q '\.php$' "$CHANGED_FILES_TMP"; then
+    unverified "thiếu touched manifest đáng tin cậy trong strict mode"
+  fi
 }
 
 # Danh sách file PHP đã đổi (unstaged + staged + untracked)
@@ -317,4 +320,3 @@ while IFS= read -r test_file; do
 done < <(printf '%s\n' "$tests_to_run" | tr ' ' '\n' | sed '/^$/d')
 
 verification_succeeded
-
