@@ -32,13 +32,10 @@ fi
 TARGET="$(cd "$TARGET" 2>/dev/null && pwd)" || { echo "Khong tim thay thu muc: $TARGET" >&2; exit 1; }
 
 # Kiểm tra thư mục đích có phải là dự án HRM API hợp lệ không
-if [ "$FORCE_OVERWRITE_TRACKED" != "1" ]; then
-  if [ ! -f "$TARGET/source/composer.json" ] && [ ! -d "$TARGET/docker/local" ]; then
-    echo "❌ LỖI: Thư mục đích ($TARGET) có vẻ không phải là dự án HRM API hợp lệ." >&2
-    echo "  (Không tìm thấy source/composer.json hoặc docker/local/)" >&2
-    echo "  Dùng --force-overwrite-tracked nếu thật sự muốn cài đặt vào đây." >&2
-    exit 1
-  fi
+if [ ! -f "$TARGET/source/composer.json" ] && [ ! -d "$TARGET/docker/local" ]; then
+  echo "❌ LỖI: Thư mục đích ($TARGET) có vẻ không phải là dự án HRM API hợp lệ." >&2
+  echo "  (Không tìm thấy source/composer.json hoặc docker/local/)" >&2
+  exit 1
 fi
 
 # PAT Guard preflight check
@@ -57,6 +54,8 @@ fi
 
 SRC="$(cd "$(dirname "$0")/payload" && pwd)"
 SNIPPET="$(cd "$(dirname "$0")" && pwd)/hooks-snippet.json"
+
+source "$(dirname "$0")/lib/managed-paths.sh"
 
 # Preflight trước khi copy file để tránh cài đặt dở nếu merge hooks không thể chạy.
 if ! command -v jq >/dev/null 2>&1; then
@@ -81,25 +80,74 @@ if [ -f "$SETTINGS_FILE" ]; then
 fi
 
 echo "Cai tooling vao: $TARGET"
+
+# --- Phase 1: Preflight Validation ---
 TRACKED_CONFLICTS=0
-while IFS= read -r -d '' f; do
-  rel="${f#./}"
-  # Ngừng ship api-docs/ trong payload vì nó thuộc quyền sở hữu của repo project
-  if [[ "$rel" == "api-docs"* ]]; then
-    continue
+SYMLINK_ESCAPES=0
+
+# Helper to check if any component in the path is a symlink
+check_symlink_escape() {
+  local path="$1"
+  local current=""
+  IFS='/' read -ra PARTS <<< "$path"
+  for part in "${PARTS[@]}"; do
+    [ -z "$part" ] && continue
+    current="$current/$part"
+    if [ -L "$current" ]; then
+      return 0 # is a symlink
+    fi
+  done
+  return 1 # no symlink found
+}
+
+# Gom danh sách các file vật lý từ MANAGED_PATHS để kiểm tra
+FILES_TO_INSTALL=()
+while IFS= read -r f; do
+  [ -z "$f" ] && continue
+  FILES_TO_INSTALL+=("$f")
+done < <(
+  for mp in "${MANAGED_PATHS[@]}"; do
+    if [ -d "$SRC/$mp" ]; then
+      cd "$SRC" && find "$mp" -type f
+    elif [ -f "$SRC/$mp" ]; then
+      echo "$mp"
+    fi
+  done
+)
+
+for rel in "${FILES_TO_INSTALL[@]}"; do
+  dest="$TARGET/$rel"
+  
+  # 1. Chặn parent symlink escape
+  if check_symlink_escape "$dest"; then
+    echo "❌ CẢNH BÁO: Phát hiện symlink trong đường dẫn đích (nguy cơ path traversal): $rel" >&2
+    SYMLINK_ESCAPES=$((SYMLINK_ESCAPES + 1))
   fi
 
-  # Chặn overwrite file đã được track bởi Git của team (trừ khi có --force-overwrite-tracked)
+  # 2. Chặn overwrite file đã được track bởi Git của team
   if [ "$FORCE_OVERWRITE_TRACKED" != "1" ] && git -C "$TARGET" ls-files --error-unmatch "$rel" >/dev/null 2>&1; then
-      echo "❌ CẢNH BÁO: Managed path đang được project track: $rel" >&2
-      TRACKED_CONFLICTS=$((TRACKED_CONFLICTS + 1))
-      continue
+    echo "❌ CẢNH BÁO: Managed path đang được project track: $rel" >&2
+    TRACKED_CONFLICTS=$((TRACKED_CONFLICTS + 1))
   fi
+done
 
+if [ "$SYMLINK_ESCAPES" -gt 0 ]; then
+  echo "❌ Cài đặt bị hủy vì phát hiện $SYMLINK_ESCAPES đường dẫn có nguy cơ symlink escape." >&2
+  exit 1
+fi
+
+if [ "$TRACKED_CONFLICTS" -gt 0 ]; then
+  echo "❌ Đã chặn cài đặt vì $TRACKED_CONFLICTS file đang được project track." >&2
+  echo "Dùng --force-overwrite-tracked nếu thật sự muốn thay thế các file này." >&2
+  exit 2
+fi
+
+# --- Phase 2: Copy Files ---
+for rel in "${FILES_TO_INSTALL[@]}"; do
   dest="$TARGET/$rel"
   mkdir -p "$(dirname "$dest")"
   
-  # Backup với timestamp (không ghi đè backup cũ)
+  # Backup với timestamp
   if [ -f "$dest" ] && ! cmp -s "$SRC/$rel" "$dest"; then
     stamp="$(date +%Y%m%d-%H%M%S).$$"
     backup="$dest.bak.$stamp"
@@ -108,13 +156,16 @@ while IFS= read -r -d '' f; do
   fi
   cp "$SRC/$rel" "$dest"
   echo "  + $rel"
-done < <(cd "$SRC" && find . -type f -print0)
+done
 
-if [ "$TRACKED_CONFLICTS" -gt 0 ]; then
-  echo "❌ Đã chặn $TRACKED_CONFLICTS file vì đang được project track." >&2
-  echo "Dùng --force-overwrite-tracked nếu thật sự muốn thay thế các file này." >&2
-  exit 2
-fi
+# Tạo symlink tự động cho aliases
+for alias_dir in ".agents" ".claude"; do
+  if [ ! -L "$TARGET/$alias_dir/skills" ] && [ ! -d "$TARGET/$alias_dir/skills" ]; then
+    mkdir -p "$TARGET/$alias_dir"
+    ln -s "../skills" "$TARGET/$alias_dir/skills"
+    echo "  + Tạo symlink $alias_dir/skills -> ../skills"
+  fi
+done
 
 chmod +x "$TARGET/.claude/hooks/"*.sh 2>/dev/null || true
 chmod +x "$TARGET/.claude/scripts/"*.sh 2>/dev/null || true

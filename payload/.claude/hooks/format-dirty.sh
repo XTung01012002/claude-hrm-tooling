@@ -23,6 +23,43 @@ container_up() {
   ( cd "$REPO_ROOT/docker/local" 2>/dev/null && docker compose exec -T hrm-api true >/dev/null 2>&1 )
 }
 
+# --- Thu thập file cần xử lý và ghi nhận ---
+
+# Ưu tiên 1: lấy file từ payload hook (thử nhiều field names khác nhau)
+TARGET_FILE=""
+if command -v jq >/dev/null 2>&1 && [ -n "$INPUT" ]; then
+  TARGET_FILE="$(printf '%s' "$INPUT" | jq -r '
+    .tool_input.file_path //
+    .tool_input.target_file //
+    .tool_input.targetFile //
+    .tool_input.path //
+    empty
+  ' 2>/dev/null)"
+  # Normalize nếu là absolute path
+  if [ -n "$TARGET_FILE" ]; then
+    TARGET_FILE="$(normalize_to_rel "$TARGET_FILE")"
+  fi
+fi
+
+collect_lint_files() {
+  if [ -n "$TARGET_FILE" ]; then
+    printf '%s\n' "$TARGET_FILE"
+  else
+    # Fallback: unstaged + untracked (BỎ staged)
+    {
+      git -C "$REPO_ROOT" diff --name-only --diff-filter=ACM
+      git -C "$REPO_ROOT" ls-files --others --exclude-standard
+    } 2>/dev/null | sort -u
+  fi
+}
+
+# Ghi nhận TẤT CẢ các file php candidate vào manifest (cho strict mode)
+while IFS= read -r f; do
+  [ -z "$f" ] && continue
+  case "$f" in *.php) ;; *) continue ;; esac
+  "$REPO_ROOT/.claude/scripts/record-touched-file.sh" "$REPO_ROOT" "$f" || true
+done < <(collect_lint_files)
+
 # Kiểm tra Docker — KHÔNG fallback sang host
 if ! has_make_target; then
   echo "[format-dirty] ⚠️ Makefile.ai không tồn tại — bỏ qua lint/format." >&2
@@ -52,35 +89,7 @@ file_exists() {
   esac
 }
 
-# --- Thu thập file cần xử lý ---
-
-# Ưu tiên 1: lấy file từ payload hook (thử nhiều field names khác nhau)
-TARGET_FILE=""
-if command -v jq >/dev/null 2>&1 && [ -n "$INPUT" ]; then
-  TARGET_FILE="$(printf '%s' "$INPUT" | jq -r '
-    .tool_input.file_path //
-    .tool_input.target_file //
-    .tool_input.targetFile //
-    .tool_input.path //
-    empty
-  ' 2>/dev/null)"
-  # Normalize nếu là absolute path
-  if [ -n "$TARGET_FILE" ]; then
-    TARGET_FILE="$(normalize_to_rel "$TARGET_FILE")"
-  fi
-fi
-
-collect_lint_files() {
-  if [ -n "$TARGET_FILE" ]; then
-    printf '%s\n' "$TARGET_FILE"
-  else
-    # Fallback: unstaged + untracked (BỎ staged)
-    {
-      git -C "$REPO_ROOT" diff --name-only --diff-filter=ACM
-      git -C "$REPO_ROOT" ls-files --others --exclude-standard
-    } 2>/dev/null | sort -u
-  fi
-}
+# --- Lint & Format ---
 
 # Lint các file .php
 fail=0

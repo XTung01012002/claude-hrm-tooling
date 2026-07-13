@@ -21,6 +21,22 @@ case "$TEST_MODE" in
     ;;
 esac
 
+SNAPSHOT_FILE=""
+
+verification_succeeded() {
+  [ -n "${SNAPSHOT_FILE:-}" ] && rm -f "$SNAPSHOT_FILE" 2>/dev/null
+  exit 0
+}
+
+verification_failed() {
+  exit 2
+}
+
+advisory_completed() {
+  [ -n "${SNAPSHOT_FILE:-}" ] && rm -f "$SNAPSHOT_FILE" 2>/dev/null
+  exit 0
+}
+
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SRC="$REPO_ROOT/source"
 INPUT="$(cat)"
@@ -34,9 +50,9 @@ unverified() {
   echo "[run-related-tests hook] ⚠️ UNVERIFIED — $1" >&2
   if [ "$TEST_MODE" = "strict" ]; then
     echo "[mode=strict] Chặn: không thể xác minh test liên quan." >&2
-    exit 2
+    verification_failed
   fi
-  exit 0
+  advisory_completed
 }
 
 [ -d "$SRC" ] || unverified "source directory không tồn tại: $SRC"
@@ -85,11 +101,24 @@ collect_changed_once() {
   : > "$CHANGED_FILES_TMP"
   : > "$GIT_ERRORS_TMP"
 
-  # Ưu tiên đọc từ touched-files được ghi bởi PostToolUse hook
+  # Snapshot mechanism: đổi tên file để tránh làm mất ghi nhận mới trong khi test đang chạy
   TOUCHED_FILES="$REPO_ROOT/.claude/tmp/touched-files"
+  SNAPSHOT_FILE="$TOUCHED_FILES.processing.$$"
+  
   if [ -s "$TOUCHED_FILES" ]; then
-    cat "$TOUCHED_FILES" | sort -u >> "$CHANGED_FILES_TMP"
-    rm -f "$TOUCHED_FILES" # Dọn dẹp sau khi đọc
+    mv "$TOUCHED_FILES" "$SNAPSHOT_FILE" 2>/dev/null || true
+  fi
+
+  has_snapshot=0
+  for f in "$TOUCHED_FILES" "$TOUCHED_FILES.processing."*; do
+    if [ -s "$f" ]; then
+      cat "$f" >> "$CHANGED_FILES_TMP"
+      has_snapshot=1
+    fi
+  done
+
+  if [ "$has_snapshot" = "1" ]; then
+    sort -u -o "$CHANGED_FILES_TMP" "$CHANGED_FILES_TMP"
     return
   fi
 
@@ -164,9 +193,9 @@ if [ -z "$tests_to_run" ]; then
     } >&2
   fi
   if [ "$TEST_MODE" = "strict" ] && [ -n "$changed_php" ]; then
-    exit 2
+    verification_failed
   fi
-  exit 0
+  advisory_completed
 fi
 
 # Kiểm tra Docker — KHÔNG fallback sang host
@@ -183,16 +212,17 @@ if ! container_up; then
       echo "[mode=strict] Chặn: không thể xác minh test liên quan."
     fi
   } >&2
-  [ "$TEST_MODE" = "strict" ] && exit 2
-  exit 0
+  [ "$TEST_MODE" = "strict" ] && verification_failed
+  advisory_completed
 fi
 
 while IFS= read -r test_file; do
   [ -z "$test_file" ] && continue
   if ! AI_TEST="$test_file" make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-test; then
     echo "[run-related-tests hook] Unit test FAILED: ${test_file}" >&2
-    exit 2
+    verification_failed
   fi
 done < <(printf '%s\n' "$tests_to_run" | tr ' ' '\n' | sed '/^$/d')
 
-exit 0
+verification_succeeded
+

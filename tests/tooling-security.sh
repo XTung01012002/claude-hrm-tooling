@@ -742,7 +742,121 @@ run_test "install rejects overwriting tracked files" test_install_rejects_overwr
 run_test "install allows overwriting tracked files with force" test_install_allows_overwriting_tracked_files_with_force
 run_test "guard warns when jq is missing" test_guard_warns_when_jq_is_missing
 
+test_strict_failure_remains_blocked_on_second_stop() {
+  local project="$TMP_DIR/strict-double-stop-project"
+  local status1 status2
+
+  mkdir -p "$project/.claude/hooks" "$project/source/src" "$project/source/tests/Unit"
+  cp "$ROOT/payload/.claude/hooks/run-related-tests.sh" "$project/.claude/hooks/run-related-tests.sh"
+  chmod +x "$project/.claude/hooks/run-related-tests.sh"
+  git -C "$project" init -q
+
+  printf '<?php\n' > "$project/source/src/Foo.php"
+  printf '<?php echo "fail"; exit(1);\n' > "$project/source/tests/Unit/FooTest.php"
+  chmod +x "$project/source/tests/Unit/FooTest.php"
+  
+  # Mock vendor/bin/phpunit
+  mkdir -p "$project/source/vendor/bin"
+  cat << 'MOCK' > "$project/source/vendor/bin/phpunit"
+#!/usr/bin/env bash
+exit 1
+MOCK
+  chmod +x "$project/source/vendor/bin/phpunit"
+
+  mkdir -p "$project/.claude/tmp"
+  printf 'source/src/Foo.php\n' > "$project/.claude/tmp/touched-files"
+
+  # First stop
+  set +e
+  (
+    cd "$project"
+    AI_TEST_MODE=strict .claude/hooks/run-related-tests.sh <<< '{}'
+  ) >"$OUT" 2>&1
+  status1=$?
+  set -e
+  
+  [ "$status1" -eq 2 ] || return 1
+
+  # Second stop
+  set +e
+  (
+    cd "$project"
+    AI_TEST_MODE=strict .claude/hooks/run-related-tests.sh <<< '{}'
+  ) >"$OUT" 2>&1
+  status2=$?
+  set -e
+  
+  [ "$status2" -eq 2 ] || return 1
+}
+
+test_record_touched_rejects_path_outside_repo() {
+  local project="$TMP_DIR/record-touched-project"
+  mkdir -p "$project/.claude/scripts"
+  cp "$ROOT/payload/.claude/scripts/record-touched-file.sh" "$project/.claude/scripts/record-touched-file.sh"
+  chmod +x "$project/.claude/scripts/record-touched-file.sh"
+
+  set +e
+  "$project/.claude/scripts/record-touched-file.sh" "$project" "/tmp/outside.php" >"$OUT" 2>&1
+  local status=$?
+  set -e
+  
+  [ "$status" -eq 1 ] && grep -q "outside repository" "$OUT"
+}
+
+test_tracked_conflict_leaves_target_unchanged() {
+  local project="$TMP_DIR/tracked-conflict-project"
+  mkdir -p "$project/source" "$project/docker/local"
+  printf '{}' > "$project/source/composer.json"
+  git -C "$project" init -q
+  
+  # Create a conflict file and track it
+  printf 'old content' > "$project/CLAUDE.md"
+  git -C "$project" add CLAUDE.md
+  
+  # Hash before install
+  local hash_before
+  hash_before=$(find "$project" -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum)
+
+  set +e
+  "$ROOT/install.sh" "$project" >"$OUT" 2>&1
+  local status=$?
+  set -e
+  
+  [ "$status" -eq 2 ] || return 1
+  
+  # Hash after install
+  local hash_after
+  hash_after=$(find "$project" -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum)
+  
+  [ "$hash_before" = "$hash_after" ]
+}
+
+test_installer_rejects_symlinked_managed_directory() {
+  local project="$TMP_DIR/symlink-escape-project"
+  mkdir -p "$project/source" "$project/docker/local"
+  printf '{}' > "$project/source/composer.json"
+  
+  # Create symlink pointing outside
+  local outside="$TMP_DIR/outside-dir"
+  mkdir -p "$outside"
+  ln -s "$outside" "$project/.claude"
+
+  set +e
+  "$ROOT/install.sh" "$project" >"$OUT" 2>&1
+  local status=$?
+  set -e
+  
+  [ "$status" -eq 1 ] && grep -q "symlink escape" "$OUT"
+}
+
+run_test "strict test hook blocked on second stop" test_strict_failure_remains_blocked_on_second_stop
+run_test "record touched rejects outside repo" test_record_touched_rejects_path_outside_repo
+run_test "tracked conflict leaves target unchanged" test_tracked_conflict_leaves_target_unchanged
+run_test "installer rejects symlinked managed directory" test_installer_rejects_symlinked_managed_directory
+
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s test(s) failed\n' "$FAILURES" >&2
   exit 1
 fi
+
+
