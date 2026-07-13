@@ -218,7 +218,7 @@ prune_stale_managed_paths() {
   fi
 
   if [ -e "$manifest" ] || [ -L "$manifest" ]; then
-    validate_regular_file_target "$manifest" "tooling manifest" || exit 1
+    validate_regular_file_target "$manifest" "tooling manifest" "$TARGET" || exit 1
     while IFS= read -r old_rel; do
       [ -n "$old_rel" ] || continue
       case "$old_rel" in
@@ -236,7 +236,7 @@ write_tooling_manifest() {
   local manifest="$TARGET/.claude/tooling-manifest"
   local manifest_tmp
 
-  validate_regular_file_target "$manifest" "tooling manifest" || exit 1
+  validate_regular_file_target "$manifest" "tooling manifest" "$TARGET" || exit 1
   mkdir -p "$(dirname "$manifest")"
   manifest_tmp="$(mktemp "$TARGET/.claude/tooling-manifest.tmp.XXXXXX")"
   printf '%s\n' "${NEW_MANAGED_PATHS[@]}" | LC_ALL=C sort -u > "$manifest_tmp"
@@ -378,7 +378,7 @@ if [ -d "$HOME/.codex" ]; then
     [ -f "$cmd" ] || continue
     base="$(basename "$cmd")"
     prompt_dest="$CODEX_PROMPTS_DIR/hrm-${base}"
-    validate_regular_file_target "$prompt_dest" "Codex prompt" || exit 1
+    validate_regular_file_target "$prompt_dest" "Codex prompt" "$HOME" || exit 1
     cp "$cmd" "$prompt_dest"
     printf '%s\n' "hrm-${base}" >> "$current_codex_prompts"
   done
@@ -419,7 +419,7 @@ echo "Da cai: Claude (.claude/commands+hooks), Antigravity (.agents/workflows+ho
 # Cấu hình cài đặt settings.local.json thông qua jq deep merge (append + dedup arrays)
 echo "Đang cấu hình settings.local.json..."
 MERGE_OK=0
-validate_regular_file_target "$SETTINGS_FILE" "settings.local.json" || exit 1
+validate_regular_file_target "$SETTINGS_FILE" "settings.local.json" "$TARGET" || exit 1
 mkdir -p "$(dirname "$SETTINGS_FILE")"
 if [ ! -e "$SETTINGS_FILE" ]; then
   settings_init_tmp="$(mktemp "$TARGET/.claude/settings.local.json.init.XXXXXX")"
