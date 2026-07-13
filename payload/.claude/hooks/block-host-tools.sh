@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# PreToolUse hook (matcher: Bash).
+# PreToolUse hook (matcher: Bash/run_command).
 # BEST-EFFORT guard: chặn AI vô tình chạy PHP/Composer/Pint/PHPUnit trên host.
 # Không phải enforcement tuyệt đối — edge cases vẫn có thể bypass.
 #
@@ -11,14 +11,24 @@
 #   4. Cho phép nếu lệnh nguy hiểm nằm trong docker/make context.
 set -uo pipefail
 
+unsupported_payload() {
+  echo "🚨 LỖI (PreToolUse Guard): Không đọc được command từ hook payload; guard fail-closed." >&2
+  echo "✅ Payload hỗ trợ: .tool_args.CommandLine (Antigravity) hoặc .tool_input.command (Claude/Codex)." >&2
+  exit 2
+}
+
 command -v jq >/dev/null 2>&1 || {
-  echo "⚠️ [PreToolUse Guard] Không tìm thấy 'jq', guard fail-open. Khuyến nghị cài đặt jq và sử dụng permissions.deny trong settings.json để đảm bảo an toàn." >&2
-  exit 0
+  echo "🚨 LỖI (PreToolUse Guard): Không tìm thấy 'jq'; guard fail-closed để tránh bỏ lọt lệnh host." >&2
+  exit 2
 }
 
 INPUT="$(cat)"
-COMMAND="$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)"
-[ -z "$COMMAND" ] && exit 0
+COMMAND="$(printf '%s' "$INPUT" | jq -r '
+  .tool_args.CommandLine //
+  .tool_input.command //
+  empty
+' 2>/dev/null)" || unsupported_payload
+[ -n "$COMMAND" ] || unsupported_payload
 
 block_host_tool() {
   echo "🚨 LỖI (PreToolUse Guard): Guard phát hiện PHP/Composer/Pint/PHPUnit có thể đang chạy trên môi trường host!" >&2

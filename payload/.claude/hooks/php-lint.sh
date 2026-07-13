@@ -14,7 +14,13 @@ command -v jq >/dev/null 2>&1 || { echo "[php-lint hook] jq không có — bỏ 
 INPUT="$(cat)"
 
 # Lấy đường dẫn file với fallback nhiều key (các tool/biến thể đặt tên khác nhau)
-FILE="$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // .tool_input.target_file // .tool_input.targetFile // empty' 2>/dev/null)"
+FILE="$(printf '%s' "$INPUT" | jq -r '
+  .tool_args.TargetFile //
+  .tool_input.file_path //
+  .tool_input.target_file //
+  .tool_input.targetFile //
+  empty
+' 2>/dev/null)"
 [ -z "$FILE" ] && exit 0
 
 # Chỉ xử lý .php
@@ -29,6 +35,14 @@ case "$FILE" in
   *)  ABS="$REPO_ROOT/$FILE" ;;
 esac
 [ -f "$ABS" ] || exit 0
+
+PHYSICAL_ROOT="$(cd "$REPO_ROOT" 2>/dev/null && pwd -P)" || exit 0
+PHYSICAL_PARENT="$(cd "$(dirname "$ABS")" 2>/dev/null && pwd -P)" || exit 0
+case "$PHYSICAL_PARENT/" in
+  "$PHYSICAL_ROOT/"*) ;;
+  *) exit 0 ;;
+esac
+
 REL="${ABS#$REPO_ROOT/}"
 
 # Ghi nhận file đã chạm vào file tạm của session

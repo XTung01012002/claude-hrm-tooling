@@ -14,7 +14,7 @@ Triết lý: (1) AI tự bám convention ngay từ đầu (đỡ review sửa nh
 | **Prompt tái dùng** | `docs/ai/prompts/*.md` (13+ file) | Logic cho review / review-vs-plan / implement / test / api-docs / code-docs / diff-review / verify / refactor / feature / commit / reuse / task-breakdown |
 | **Claude Code** | `CLAUDE.md` · `.claude/commands/*` · `.claude/hooks/*` + `.claude/settings.json` + `settings.local.json` | rule + lệnh + hook |
 | **Codex** | `AGENTS.md` · `~/.codex/prompts/*` · `.codex/hooks.json` | rule + lệnh + hook |
-| **Antigravity** | `AGENTS.md` · `.agent/workflows/*` (+ `.agent/hooks.json` cho bản CLI) | rule + lệnh + (soft-hook) |
+| **Antigravity** | `AGENTS.md` · `.agents/workflows/*` · `.agents/hooks.json` | rule + lệnh + hook |
 
 > `CLAUDE.md` (Claude) và `AGENTS.md` (Codex/Antigravity/Cursor) đều là **pointer mỏng** trỏ về `docs/ai/PROJECT-CONVENTIONS.md`. Sửa rule 1 chỗ → cả 3 cập nhật.
 
@@ -32,7 +32,7 @@ Triết lý: (1) AI tự bám convention ngay từ đầu (đỡ review sửa nh
 | PreToolUse guard | ✅ | ❌ (soft trong AGENTS.md) | ⚠️ sau Trust (verify) |
 | find-reuse | ✅ skill+cmd | ✅ workflow | ⚠️ AGENTS.md (+prompt nếu chạy) |
 
-+ caveat: Antigravity IDE không chạy hook → enforcement = AGENTS.md tự-tuân; Codex extension cần **Trust** + verify `/hooks`; `~/.codex/prompts` có thể không hiện trong extension.
++ caveat: Codex extension cần **Trust** + verify `/hooks`; `~/.codex/prompts` có thể không hiện trong extension. Với Antigravity, kiểm tra workspace hooks trong `.agents/hooks.json` sau khi restart IDE.
 
 Ý nghĩa lệnh:
 - `/review` (soát diff theo checklist, verdict PASS/FAIL)
@@ -61,12 +61,12 @@ git clone https://github.com/XTung01012002/claude-hrm-tooling.git
 cd claude-hrm-tooling
 ./install.sh /duong-dan/toi/hrm-api
 ```
-`install.sh` copy vào project: `CLAUDE.md`, `AGENTS.md`, `Makefile.ai`, `docs/ai/`, `.claude/{commands,hooks,scripts,settings.json,skills}`, `.agent/{workflows,hooks.json}`, `.codex/hooks.json`; và copy `~/.codex/prompts/` nếu máy có `~/.codex`.
+`install.sh` copy vào project: `CLAUDE.md`, `AGENTS.md`, `Makefile.ai`, `docs/ai/`, `.claude/{commands,hooks,scripts,settings.json,skills}`, `.agents/{workflows,hooks.json}`, `.codex/hooks.json`; và copy `~/.codex/prompts/` nếu máy có `~/.codex`.
 
 ### 2) Một-lần cho từng nền tảng
 - **Claude Code:** Script \`install.sh\` đã tự động merge hook vào \`.claude/settings.local.json\`. Bạn chỉ cần khởi động lại Claude Code.
 - **Codex:** mở project bằng Codex → nó phát hiện `.codex/hooks.json` và hỏi *"N hooks need review"* → bấm **Trust all** (hoặc Review hooks để xem trước — hook gọi `make -f Makefile.ai ai-*` trong Docker). → khởi động lại phiên. (Prompts đã nằm ở `~/.codex/prompts`.)
-- **Antigravity:** chỉ cần mở project (tự đọc `AGENTS.md` + `.agent/workflows/`). → khởi động lại phiên. *(Bản IDE không chạy `.agent/hooks.json` → format dựa vào soft-hook trong `AGENTS.md`; bản CLI thì hook chạy thật.)*
+- **Antigravity:** chỉ cần mở project (tự đọc `AGENTS.md` + `.agents/workflows/` + `.agents/hooks.json`). → khởi động lại phiên và kiểm tra hooks/workflows đã được load.
 
 ### 3) Verify nhanh
 - Hỏi (không đính kèm file): *"feature mẫu chuẩn của dự án là gì?"* → phải trả lời `SaveZaloAccountStaff`.

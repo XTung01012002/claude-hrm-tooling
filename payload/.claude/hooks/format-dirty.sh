@@ -47,13 +47,14 @@ file_exists() {
 TARGET_FILE=""
 if command -v jq >/dev/null 2>&1 && [ -n "$INPUT" ]; then
   TARGET_FILE="$(printf '%s' "$INPUT" | jq -r '
+    .tool_args.TargetFile //
     .tool_input.file_path //
     .tool_input.target_file //
     .tool_input.targetFile //
     .tool_input.path //
     empty
   ' 2>/dev/null)"
-  # Normalize nếu là absolute path
+  # Normalize nếu là absolute path; absolute ngoài repo sẽ bị skip.
   if [ -n "$TARGET_FILE" ]; then
     TARGET_FILE="$(normalize_to_rel "$TARGET_FILE")"
   fi

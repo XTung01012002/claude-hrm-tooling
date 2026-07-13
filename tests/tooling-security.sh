@@ -112,6 +112,13 @@ run_guard() {
     bash "$ROOT/payload/.claude/hooks/block-host-tools.sh" >"$OUT" 2>&1
 }
 
+run_guard_antigravity() {
+  local command="$1"
+
+  printf '{"tool_args":{"CommandLine":%s}}\n' "$(printf '%s' "$command" | jq -Rsa .)" |
+    bash "$ROOT/payload/.claude/hooks/block-host-tools.sh" >"$OUT" 2>&1
+}
+
 rejects_test_payload() {
   local payload="$1"
   local marker="$2"
@@ -246,6 +253,40 @@ test_block_host_tools_allows_env_prefix() {
   set -e
 
   [ "$status" -eq 0 ]
+}
+
+test_block_host_tools_rejects_antigravity_commandline() {
+  local status
+
+  set +e
+  run_guard_antigravity 'php artisan migrate:fresh'
+  status=$?
+  set -e
+
+  [ "$status" -eq 2 ]
+}
+
+test_block_host_tools_allows_antigravity_makefile_commandline() {
+  local status
+
+  set +e
+  run_guard_antigravity 'make -f Makefile.ai ai-about'
+  status=$?
+  set -e
+
+  [ "$status" -eq 0 ]
+}
+
+test_block_host_tools_fails_closed_on_unknown_payload() {
+  local status
+
+  set +e
+  printf '{"tool_args":{"Unknown":"make -f Makefile.ai ai-about"}}\n' |
+    bash "$ROOT/payload/.claude/hooks/block-host-tools.sh" >"$OUT" 2>&1
+  status=$?
+  set -e
+
+  [ "$status" -eq 2 ] && grep -q 'fail-closed' "$OUT"
 }
 
 test_make_env_override_cannot_replace_runner() {
@@ -677,7 +718,7 @@ test_install_allows_overwriting_tracked_files_with_force() {
   grep -q 'block-host-tools.sh' "$OUT" && ! grep -q 'được project track' "$OUT"
 }
 
-test_guard_warns_when_jq_is_missing() {
+test_guard_fails_closed_when_jq_is_missing() {
   local status
 
   set +e
@@ -686,7 +727,7 @@ test_guard_warns_when_jq_is_missing() {
   status=$?
   set -e
 
-  [ "$status" -eq 0 ] && grep -q 'Không tìm thấy '"'"'jq'"'"'' "$OUT"
+  [ "$status" -eq 2 ] && grep -q 'fail-closed' "$OUT"
 }
 
 test_strict_hook_prioritizes_touched_files() {
@@ -746,6 +787,9 @@ run_test "ai-route-list rejects route path injection" test_rejects_route_path_in
 run_test "settings has no Makefile auto-allow" test_settings_has_no_make_wildcard_auto_allow
 run_test "block-host-tools rejects old Makefile variables" test_block_host_tools_rejects_make_cli_vars
 run_test "block-host-tools allows env-prefix Makefile commands" test_block_host_tools_allows_env_prefix
+run_test "block-host-tools rejects Antigravity CommandLine host PHP" test_block_host_tools_rejects_antigravity_commandline
+run_test "block-host-tools allows Antigravity CommandLine Makefile.ai" test_block_host_tools_allows_antigravity_makefile_commandline
+run_test "block-host-tools fails closed on unknown payload" test_block_host_tools_fails_closed_on_unknown_payload
 run_test "MAKEFLAGS cannot override Makefile runner" test_make_env_override_cannot_replace_runner
 run_test "block-host-tools rejects MAKEFLAGS/AI_RUN prefix" test_block_host_tools_rejects_makeflags_ai_run_prefix
 run_test "block-host-tools rejects MAKEFILES prefix" test_block_host_tools_rejects_makefiles_prefix
@@ -773,7 +817,7 @@ run_test "strict test hook prioritizes touched files" test_strict_hook_prioritiz
 run_test "install backup/exclude/scripts are safe" test_install_creates_precise_backup_and_excludes_bak_suffixes
 run_test "install rejects overwriting tracked files" test_install_rejects_overwriting_tracked_files
 run_test "install allows overwriting tracked files with force" test_install_allows_overwriting_tracked_files_with_force
-run_test "guard warns when jq is missing" test_guard_warns_when_jq_is_missing
+run_test "guard fails closed when jq is missing" test_guard_fails_closed_when_jq_is_missing
 
 test_strict_missing_makefile_remains_blocked() {
   local project="$TMP_DIR/strict-double-stop-project"
@@ -1047,6 +1091,28 @@ test_format_dirty_records_exact_payload_file() {
   local status=$?
   set -e
   
+  [ "$status" -eq 0 ] || return 1
+  grep -q "source/src/Foo.php" "$project/.claude/tmp/touched-files"
+}
+
+test_format_dirty_records_antigravity_target_file() {
+  local project="$TMP_DIR/format-dirty-antigravity-project"
+  mkdir -p "$project/.claude/hooks" "$project/.claude/scripts" "$project/.claude/tmp" "$project/source/src"
+  cp "$ROOT/payload/.claude/hooks/format-dirty.sh" "$project/.claude/hooks/format-dirty.sh"
+  mkdir -p "$project/.claude/scripts" && cp "$ROOT/payload/.claude/scripts/validate-tooling-tmp.sh" "$project/.claude/scripts/validate-tooling-tmp.sh" && chmod +x "$project/.claude/scripts/validate-tooling-tmp.sh"
+  cp "$ROOT/payload/.claude/scripts/record-touched-file.sh" "$project/.claude/scripts/record-touched-file.sh"
+  chmod +x "$project/.claude/hooks/format-dirty.sh" "$project/.claude/scripts/record-touched-file.sh"
+
+  touch "$project/source/src/Foo.php"
+
+  set +e
+  (
+    cd "$project"
+    jq -n '{"tool_args": {"TargetFile": "source/src/Foo.php"}}' | .claude/hooks/format-dirty.sh
+  ) >"$OUT" 2>&1
+  local status=$?
+  set -e
+
   [ "$status" -eq 0 ] || return 1
   grep -q "source/src/Foo.php" "$project/.claude/tmp/touched-files"
 }
@@ -1535,6 +1601,7 @@ run_test "tracked conflict leaves target unchanged" test_tracked_conflict_leaves
 run_test "installer rejects symlinked managed directory" test_installer_rejects_symlinked_managed_directory
 run_test "installer rejects symlinked agents parent" test_installer_rejects_symlinked_agents_parent
 run_test "format dirty hook records exact payload file" test_format_dirty_records_exact_payload_file
+run_test "format dirty hook records Antigravity TargetFile" test_format_dirty_records_antigravity_target_file
 run_test "installer preserves tracked correct skill alias" test_installer_preserves_tracked_correct_skill_alias
 run_test "installer rejects tracked wrong skill symlink" test_installer_rejects_tracked_wrong_skill_symlink
 run_test "installer force migrates tracked legacy skill directory" test_installer_force_migrates_tracked_legacy_skill_directory
@@ -1556,4 +1623,3 @@ if [ "$FAILURES" -ne 0 ]; then
   printf '%s test(s) failed\n' "$FAILURES" >&2
   exit 1
 fi
-
