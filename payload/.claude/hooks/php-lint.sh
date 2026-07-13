@@ -32,10 +32,14 @@ esac
 REL="${ABS#$REPO_ROOT/}"
 
 # Ghi nhận file đã chạm vào file tạm của session
-TOUCHED_FILES="$REPO_ROOT/.claude/tmp/touched-files"
-mkdir -p "$(dirname "$TOUCHED_FILES")"
-case "$REL" in
-  source/*) echo "$REL" >> "$TOUCHED_FILES" ;;
+record_rc=0
+"$REPO_ROOT/.claude/scripts/record-touched-file.sh" "$REPO_ROOT" "$ABS" || record_rc=$?
+case "$record_rc" in
+  0|10) ;;
+  *)
+    printf '[php-lint hook] ⚠️ Unable to safely record touched file: %s\n' "$ABS" >&2
+    exit 2
+    ;;
 esac
 
 has_make_target() {

@@ -23,17 +23,6 @@ container_up() {
   ( cd "$REPO_ROOT/docker/local" 2>/dev/null && docker compose exec -T hrm-api true >/dev/null 2>&1 )
 }
 
-# Kiểm tra Docker — KHÔNG fallback sang host
-if ! has_make_target; then
-  echo "[format-dirty] ⚠️ Makefile.ai không tồn tại — bỏ qua lint/format." >&2
-  exit 0
-fi
-
-if ! container_up; then
-  echo "[format-dirty] ⚠️ Container hrm-api không chạy — bỏ qua lint/format. Bật Docker rồi chạy tay." >&2
-  exit 0
-fi
-
 # --- Normalize path: absolute → relative to REPO_ROOT ---
 normalize_to_rel() {
   local f="$1"
@@ -52,7 +41,7 @@ file_exists() {
   esac
 }
 
-# --- Thu thập file cần xử lý ---
+# --- Thu thập file cần xử lý và ghi nhận ---
 
 # Ưu tiên 1: lấy file từ payload hook (thử nhiều field names khác nhau)
 TARGET_FILE=""
@@ -81,6 +70,38 @@ collect_lint_files() {
     } 2>/dev/null | sort -u
   fi
 }
+
+# Ghi nhận TẤT CẢ các file php candidate vào manifest (cho strict mode)
+while IFS= read -r f; do
+  [ -z "$f" ] && continue
+  case "$f" in *.php) ;; *) continue ;; esac
+  
+  record_rc=0
+  "$REPO_ROOT/.claude/scripts/record-touched-file.sh" "$REPO_ROOT" "$f" || record_rc=$?
+  
+  case "$record_rc" in
+    0|10) ;;
+    *)
+      printf '[format-dirty] ⚠️ Unable to safely record touched file: %s\n' "$f" >&2
+      exit 2
+      ;;
+  esac
+done < <(collect_lint_files)
+
+# Kiểm tra Docker — KHÔNG fallback sang host
+if ! has_make_target; then
+  echo "[format-dirty] ⚠️ Makefile.ai không tồn tại — bỏ qua lint/format." >&2
+  exit 0
+fi
+
+if ! container_up; then
+  echo "[format-dirty] ⚠️ Container hrm-api không chạy — bỏ qua lint/format. Bật Docker rồi chạy tay." >&2
+  exit 0
+fi
+
+
+
+# --- Lint & Format ---
 
 # Lint các file .php
 fail=0

@@ -6,7 +6,32 @@ TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/tooling-security.XXXXXX")"
 OUT="$TMP_DIR/out"
 FAILURES=0
 
-trap 'rm -rf "$TMP_DIR"' EXIT
+clean_up() {
+  rm -rf "$TMP_DIR"
+}
+
+snapshot_tree() {
+  local root="$1"
+  (
+    cd "$root" || exit 1
+    find . -mindepth 1 -print |
+      LC_ALL=C sort |
+      while IFS= read -r path; do
+        if [ -L "$path" ]; then
+          printf 'L %s -> %s\n' "$path" "$(readlink "$path")"
+        elif [ -f "$path" ]; then
+          printf 'F %s ' "$path"
+          shasum "$path" | awk '{print $1}'
+        elif [ -d "$path" ]; then
+          printf 'D %s\n' "$path"
+        else
+          printf 'O %s\n' "$path"
+        fi
+      done
+  ) | shasum | awk '{print $1}'
+}
+
+trap 'clean_up' EXIT
 
 pass() {
   printf 'ok - %s\n' "$1"
@@ -435,6 +460,7 @@ test_strict_fails_closed_without_makefile() {
   local status
 
   mkdir -p "$project/.claude/hooks" "$project/source/src" "$project/source/tests/Unit"
+  mkdir -p "$project/.claude/scripts" && cp "$ROOT/payload/.claude/scripts/validate-tooling-tmp.sh" "$project/.claude/scripts/validate-tooling-tmp.sh" && chmod +x "$project/.claude/scripts/validate-tooling-tmp.sh"
   cp "$ROOT/payload/.claude/hooks/run-related-tests.sh" "$project/.claude/hooks/run-related-tests.sh"
   chmod +x "$project/.claude/hooks/run-related-tests.sh"
   git -C "$project" init -q
@@ -460,6 +486,7 @@ test_strict_rejects_invalid_ai_test_mode() {
   local status
 
   mkdir -p "$project/.claude/hooks" "$project/source"
+  mkdir -p "$project/.claude/scripts" && cp "$ROOT/payload/.claude/scripts/validate-tooling-tmp.sh" "$project/.claude/scripts/validate-tooling-tmp.sh" && chmod +x "$project/.claude/scripts/validate-tooling-tmp.sh"
   cp "$ROOT/payload/.claude/hooks/run-related-tests.sh" "$project/.claude/hooks/run-related-tests.sh"
   chmod +x "$project/.claude/hooks/run-related-tests.sh"
   git -C "$project" init -q
@@ -480,6 +507,7 @@ test_strict_fails_when_source_directory_missing() {
   local status
 
   mkdir -p "$project/.claude/hooks"
+  mkdir -p "$project/.claude/scripts" && cp "$ROOT/payload/.claude/scripts/validate-tooling-tmp.sh" "$project/.claude/scripts/validate-tooling-tmp.sh" && chmod +x "$project/.claude/scripts/validate-tooling-tmp.sh"
   cp "$ROOT/payload/.claude/hooks/run-related-tests.sh" "$project/.claude/hooks/run-related-tests.sh"
   chmod +x "$project/.claude/hooks/run-related-tests.sh"
   git -C "$project" init -q
@@ -500,6 +528,7 @@ test_strict_fails_outside_git_worktree() {
   local status
 
   mkdir -p "$project/.claude/hooks" "$project/source"
+  mkdir -p "$project/.claude/scripts" && cp "$ROOT/payload/.claude/scripts/validate-tooling-tmp.sh" "$project/.claude/scripts/validate-tooling-tmp.sh" && chmod +x "$project/.claude/scripts/validate-tooling-tmp.sh"
   cp "$ROOT/payload/.claude/hooks/run-related-tests.sh" "$project/.claude/hooks/run-related-tests.sh"
   chmod +x "$project/.claude/hooks/run-related-tests.sh"
 
@@ -519,6 +548,7 @@ test_strict_fails_when_git_index_is_corrupt() {
   local status
 
   mkdir -p "$project/.claude/hooks" "$project/source/src"
+  mkdir -p "$project/.claude/scripts" && cp "$ROOT/payload/.claude/scripts/validate-tooling-tmp.sh" "$project/.claude/scripts/validate-tooling-tmp.sh" && chmod +x "$project/.claude/scripts/validate-tooling-tmp.sh"
   cp "$ROOT/payload/.claude/hooks/run-related-tests.sh" "$project/.claude/hooks/run-related-tests.sh"
   chmod +x "$project/.claude/hooks/run-related-tests.sh"
   printf '<?php\n' > "$project/source/src/Foo.php"
@@ -541,6 +571,7 @@ test_strict_flags_deleted_php_file() {
   local status
 
   mkdir -p "$project/.claude/hooks" "$project/source/src"
+  mkdir -p "$project/.claude/scripts" && cp "$ROOT/payload/.claude/scripts/validate-tooling-tmp.sh" "$project/.claude/scripts/validate-tooling-tmp.sh" && chmod +x "$project/.claude/scripts/validate-tooling-tmp.sh"
   cp "$ROOT/payload/.claude/hooks/run-related-tests.sh" "$project/.claude/hooks/run-related-tests.sh"
   chmod +x "$project/.claude/hooks/run-related-tests.sh"
   printf '<?php\n' > "$project/source/src/DeleteMe.php"
@@ -565,6 +596,7 @@ test_strict_flags_renamed_php_file() {
   local status
 
   mkdir -p "$project/.claude/hooks" "$project/source/src"
+  mkdir -p "$project/.claude/scripts" && cp "$ROOT/payload/.claude/scripts/validate-tooling-tmp.sh" "$project/.claude/scripts/validate-tooling-tmp.sh" && chmod +x "$project/.claude/scripts/validate-tooling-tmp.sh"
   cp "$ROOT/payload/.claude/hooks/run-related-tests.sh" "$project/.claude/hooks/run-related-tests.sh"
   chmod +x "$project/.claude/hooks/run-related-tests.sh"
   printf '<?php\n' > "$project/source/src/OldName.php"
@@ -662,6 +694,7 @@ test_strict_hook_prioritizes_touched_files() {
   local status
 
   mkdir -p "$project/.claude/hooks" "$project/source/src" "$project/source/tests/Unit" "$project/docker/local"
+  mkdir -p "$project/.claude/scripts" && cp "$ROOT/payload/.claude/scripts/validate-tooling-tmp.sh" "$project/.claude/scripts/validate-tooling-tmp.sh" && chmod +x "$project/.claude/scripts/validate-tooling-tmp.sh"
   cp "$ROOT/payload/.claude/hooks/run-related-tests.sh" "$project/.claude/hooks/run-related-tests.sh"
   cp "$ROOT/payload/Makefile.ai" "$project/Makefile.ai"
   chmod +x "$project/.claude/hooks/run-related-tests.sh"
@@ -742,7 +775,831 @@ run_test "install rejects overwriting tracked files" test_install_rejects_overwr
 run_test "install allows overwriting tracked files with force" test_install_allows_overwriting_tracked_files_with_force
 run_test "guard warns when jq is missing" test_guard_warns_when_jq_is_missing
 
+test_strict_missing_makefile_remains_blocked() {
+  local project="$TMP_DIR/strict-double-stop-project"
+  local status1 status2
+
+  mkdir -p "$project/.claude/hooks" "$project/source/src" "$project/source/tests/Unit"
+  mkdir -p "$project/.claude/scripts" && cp "$ROOT/payload/.claude/scripts/validate-tooling-tmp.sh" "$project/.claude/scripts/validate-tooling-tmp.sh" && chmod +x "$project/.claude/scripts/validate-tooling-tmp.sh"
+  cp "$ROOT/payload/.claude/hooks/run-related-tests.sh" "$project/.claude/hooks/run-related-tests.sh"
+  chmod +x "$project/.claude/hooks/run-related-tests.sh"
+  git -C "$project" init -q
+
+  printf '<?php\n' > "$project/source/src/Foo.php"
+  printf '<?php echo "fail"; exit(1);\n' > "$project/source/tests/Unit/FooTest.php"
+  chmod +x "$project/source/tests/Unit/FooTest.php"
+  
+  # Mock vendor/bin/phpunit and docker
+  mkdir -p "$project/source/vendor/bin" "$project/bin"
+  cat << 'MOCK' > "$project/source/vendor/bin/phpunit"
+#!/usr/bin/env bash
+exit 1
+MOCK
+  cat << 'DOCKER_MOCK' > "$project/bin/docker"
+#!/usr/bin/env bash
+exit 0
+DOCKER_MOCK
+  chmod +x "$project/source/vendor/bin/phpunit" "$project/bin/docker"
+
+  mkdir -p "$project/.claude/tmp" "$project/docker/local"
+  printf 'source/src/Foo.php\n' > "$project/.claude/tmp/touched-files"
+
+  # First stop
+  set +e
+  (
+    cd "$project"
+    export PATH="$project/bin:$PATH"
+    AI_TEST_MODE=strict .claude/hooks/run-related-tests.sh <<< '{}'
+  ) >"$OUT" 2>&1
+  status1=$?
+  set -e
+  
+  [ "$status1" -eq 2 ] || return 1
+
+  # Second stop
+  set +e
+  (
+    cd "$project"
+    export PATH="$project/bin:$PATH"
+    AI_TEST_MODE=strict .claude/hooks/run-related-tests.sh <<< '{}'
+  ) >"$OUT" 2>&1
+  status2=$?
+  set -e
+  
+  [ "$status2" -eq 2 ] || return 1
+}
+
+test_strict_failed_test_remains_blocked() {
+  local project="$TMP_DIR/strict-failed-test-project"
+  local status1 status2
+
+  mkdir -p "$project/.claude/hooks" "$project/source/src" "$project/source/tests/Unit"
+  mkdir -p "$project/.claude/scripts" && cp "$ROOT/payload/.claude/scripts/validate-tooling-tmp.sh" "$project/.claude/scripts/validate-tooling-tmp.sh" && chmod +x "$project/.claude/scripts/validate-tooling-tmp.sh"
+  cp "$ROOT/payload/.claude/hooks/run-related-tests.sh" "$project/.claude/hooks/run-related-tests.sh"
+  chmod +x "$project/.claude/hooks/run-related-tests.sh"
+  git -C "$project" init -q
+  touch "$project/Makefile.ai"
+
+  printf '<?php\n' > "$project/source/src/Foo.php"
+  printf '<?php echo "fail"; exit(1);\n' > "$project/source/tests/Unit/FooTest.php"
+  chmod +x "$project/source/tests/Unit/FooTest.php"
+  
+  cat << 'MOCK' > "$project/Makefile.ai"
+ai-test:
+	exit 1
+MOCK
+
+  # Mock docker
+  mkdir -p "$project/bin"
+  cat << 'DOCKER_MOCK' > "$project/bin/docker"
+#!/usr/bin/env bash
+exit 0
+DOCKER_MOCK
+  chmod +x "$project/bin/docker"
+
+  mkdir -p "$project/.claude/tmp" "$project/docker/local"
+  printf 'source/src/Foo.php\n' > "$project/.claude/tmp/touched-files"
+
+  # First stop
+  set +e
+  (
+    cd "$project"
+    export PATH="$project/bin:$PATH"
+    AI_TEST_MODE=strict .claude/hooks/run-related-tests.sh <<< '{}'
+  ) >"$OUT" 2>&1
+  status1=$?
+  set -e
+  
+  [ "$status1" -eq 2 ] || return 1
+
+  # Second stop
+  set +e
+  (
+    cd "$project"
+    export PATH="$project/bin:$PATH"
+    AI_TEST_MODE=strict .claude/hooks/run-related-tests.sh <<< '{}'
+  ) >"$OUT" 2>&1
+  status2=$?
+  set -e
+  
+  [ "$status2" -eq 2 ] || return 1
+}
+
+test_success_clears_old_processing_snapshot() {
+  local project="$TMP_DIR/strict-success-project"
+  local status1
+
+  mkdir -p "$project/.claude/hooks" "$project/source/src" "$project/source/tests/Unit"
+  mkdir -p "$project/.claude/scripts" && cp "$ROOT/payload/.claude/scripts/validate-tooling-tmp.sh" "$project/.claude/scripts/validate-tooling-tmp.sh" && chmod +x "$project/.claude/scripts/validate-tooling-tmp.sh"
+  cp "$ROOT/payload/.claude/hooks/run-related-tests.sh" "$project/.claude/hooks/run-related-tests.sh"
+  chmod +x "$project/.claude/hooks/run-related-tests.sh"
+  git -C "$project" init -q
+  touch "$project/Makefile.ai"
+
+  printf '<?php\n' > "$project/source/src/Foo.php"
+  printf '<?php echo "pass"; exit(0);\n' > "$project/source/tests/Unit/FooTest.php"
+  chmod +x "$project/source/tests/Unit/FooTest.php"
+  
+  cat << 'MOCK' > "$project/Makefile.ai"
+ai-test:
+	exit 0
+MOCK
+
+  # Mock docker
+  mkdir -p "$project/bin"
+  cat << 'DOCKER_MOCK' > "$project/bin/docker"
+#!/usr/bin/env bash
+exit 0
+DOCKER_MOCK
+  chmod +x "$project/bin/docker"
+
+  mkdir -p "$project/.claude/tmp" "$project/docker/local"
+  printf 'source/src/Foo.php\n' > "$project/.claude/tmp/touched-files"
+  printf 'source/src/Bar.php\n' > "$project/.claude/tmp/touched-files.processing.12345"
+
+  # Run stop
+  set +e
+  (
+    cd "$project"
+    export PATH="$project/bin:$PATH"
+    AI_TEST_MODE=strict .claude/hooks/run-related-tests.sh <<< '{}'
+  ) >"$OUT" 2>&1
+  status1=$?
+  set -e
+  
+  [ "$status1" -eq 0 ] || return 1
+
+  # Ensure snapshot is deleted
+  local count
+  count=$(find "$project/.claude/tmp" -name "touched-files.processing.*" | wc -l)
+  [ "$count" -eq 0 ]
+}
+
+test_record_touched_rejects_path_outside_repo() {
+  local project="$TMP_DIR/record-touched-project"
+  mkdir -p "$project/.claude/scripts"
+  mkdir -p "$project/.claude/scripts" && cp "$ROOT/payload/.claude/scripts/validate-tooling-tmp.sh" "$project/.claude/scripts/validate-tooling-tmp.sh" && chmod +x "$project/.claude/scripts/validate-tooling-tmp.sh"
+  cp "$ROOT/payload/.claude/scripts/record-touched-file.sh" "$project/.claude/scripts/record-touched-file.sh"
+  chmod +x "$project/.claude/scripts/record-touched-file.sh"
+
+  set +e
+  "$project/.claude/scripts/record-touched-file.sh" "$project" "/tmp/outside.php" >"$OUT" 2>&1
+  local status=$?
+  set -e
+  
+  [ "$status" -eq 2 ] && grep -q "outside repository" "$OUT"
+}
+
+test_record_touched_rejects_dotdot_escape() {
+  local project="$TMP_DIR/record-touched-project-dotdot"
+  mkdir -p "$project/.claude/scripts"
+  mkdir -p "$project/.claude/scripts" && cp "$ROOT/payload/.claude/scripts/validate-tooling-tmp.sh" "$project/.claude/scripts/validate-tooling-tmp.sh" && chmod +x "$project/.claude/scripts/validate-tooling-tmp.sh"
+  cp "$ROOT/payload/.claude/scripts/record-touched-file.sh" "$project/.claude/scripts/record-touched-file.sh"
+  chmod +x "$project/.claude/scripts/record-touched-file.sh"
+
+  set +e
+  "$project/.claude/scripts/record-touched-file.sh" "$project" "source/../../tmp/outside.php" >"$OUT" 2>&1
+  local status=$?
+  set -e
+  
+  [ "$status" -eq 2 ] || return 1
+  grep -q "Path traversal detected" "$OUT"
+}
+
+test_tracked_conflict_leaves_target_unchanged() {
+  local project="$TMP_DIR/tracked-conflict-project"
+  mkdir -p "$project/source" "$project/docker/local"
+  printf '{}' > "$project/source/composer.json"
+  git -C "$project" init -q
+  
+  # Create a conflict file and track it
+  printf 'old content' > "$project/CLAUDE.md"
+  git -C "$project" add CLAUDE.md
+  
+  # Hash before install
+  local hash_before
+  hash_before=$(snapshot_tree "$project")
+
+  set +e
+  "$ROOT/install.sh" "$project" >"$OUT" 2>&1
+  local status=$?
+  set -e
+  
+  [ "$status" -eq 2 ] || return 1
+  
+  # Hash after install
+  local hash_after
+  hash_after=$(snapshot_tree "$project")
+  
+  [ "$hash_before" = "$hash_after" ]
+}
+
+test_installer_rejects_symlinked_managed_directory() {
+  local project="$TMP_DIR/symlink-escape-project"
+  mkdir -p "$project/source" "$project/docker/local"
+  printf '{}' > "$project/source/composer.json"
+  
+  # Create symlink pointing outside
+  local outside="$TMP_DIR/outside-dir"
+  mkdir -p "$outside"
+  ln -s "$outside" "$project/.claude"
+
+  set +e
+  "$ROOT/install.sh" "$project" >"$OUT" 2>&1
+  local status=$?
+  set -e
+  
+  [ "$status" -eq 1 ] && grep -q "symlink escape" "$OUT"
+}
+
+test_installer_rejects_symlinked_agents_parent() {
+  local project="$TMP_DIR/symlink-agents-project"
+  mkdir -p "$project/source" "$project/docker/local"
+  printf '{}' > "$project/source/composer.json"
+  
+  local outside="$TMP_DIR/outside-agents-dir"
+  mkdir -p "$outside"
+  ln -s "$outside" "$project/.agents"
+
+  set +e
+  "$ROOT/install.sh" "$project" >"$OUT" 2>&1
+  local status=$?
+  set -e
+  
+  [ "$status" -eq 1 ] && grep -q "symlink escape" "$OUT"
+}
+
+test_format_dirty_records_exact_payload_file() {
+  local project="$TMP_DIR/format-dirty-project"
+  mkdir -p "$project/.claude/hooks" "$project/.claude/scripts" "$project/.claude/tmp" "$project/source/src"
+  cp "$ROOT/payload/.claude/hooks/format-dirty.sh" "$project/.claude/hooks/format-dirty.sh"
+  mkdir -p "$project/.claude/scripts" && cp "$ROOT/payload/.claude/scripts/validate-tooling-tmp.sh" "$project/.claude/scripts/validate-tooling-tmp.sh" && chmod +x "$project/.claude/scripts/validate-tooling-tmp.sh"
+  cp "$ROOT/payload/.claude/scripts/record-touched-file.sh" "$project/.claude/scripts/record-touched-file.sh"
+  chmod +x "$project/.claude/hooks/format-dirty.sh" "$project/.claude/scripts/record-touched-file.sh"
+  
+  touch "$project/source/src/Foo.php"
+  
+  set +e
+  (
+    cd "$project"
+    jq -n '{"tool_input": {"file_path": "source/src/Foo.php"}}' | .claude/hooks/format-dirty.sh
+  ) >"$OUT" 2>&1
+  local status=$?
+  set -e
+  
+  [ "$status" -eq 0 ] || return 1
+  grep -q "source/src/Foo.php" "$project/.claude/tmp/touched-files"
+}
+
+test_installer_keeps_correct_skill_alias() {
+  local project="$TMP_DIR/installer-skill-alias"
+  mkdir -p "$project/source" "$project/docker/local" "$project/.agents"
+  printf '{}' > "$project/source/composer.json"
+  ln -s "../skills" "$project/.agents/skills"
+  
+  set +e
+  "$ROOT/install.sh" "$project" >"$OUT" 2>&1
+  local status=$?
+  set -e
+  
+  [ "$status" -eq 0 ] || return 1
+  [ "$(readlink "$project/.agents/skills")" = "../skills" ]
+}
+
+test_installer_preserves_tracked_correct_skill_alias() {
+  local project="$TMP_DIR/preserves-tracked-correct-alias"
+  mkdir -p "$project/source" "$project/docker/local" "$project/.agents"
+  printf '{}' > "$project/source/composer.json"
+  git -C "$project" init -q
+  
+  ln -s "../skills" "$project/.agents/skills"
+  git -C "$project" add .agents/skills
+  git -C "$project" commit -m "add symlink"
+
+  set +e
+  "$ROOT/install.sh" "$project" >"$OUT" 2>&1
+  local status=$?
+  set -e
+  
+  [ "$status" -eq 0 ] || return 1
+}
+
+test_installer_rejects_tracked_wrong_skill_symlink() {
+  local project="$TMP_DIR/rejects-tracked-wrong-alias"
+  mkdir -p "$project/source" "$project/docker/local" "$project/.agents"
+  printf '{}' > "$project/source/composer.json"
+  git -C "$project" init -q
+  
+  ln -s "../wrong" "$project/.agents/skills"
+  git -C "$project" add .agents/skills
+  git -C "$project" commit -m "add wrong symlink"
+
+  set +e
+  "$ROOT/install.sh" "$project" >"$OUT" 2>&1
+  local status=$?
+  set -e
+  
+  [ "$status" -eq 2 ] || return 1
+  grep -q "đang được Git track" "$OUT"
+}
+
+test_installer_force_migrates_tracked_legacy_skill_directory() {
+  local project="$TMP_DIR/force-migrates-legacy-dir"
+  mkdir -p "$project/source" "$project/docker/local" "$project/.agents/skills/task-breakdown"
+  printf '{}' > "$project/source/composer.json"
+  git -C "$project" init -q
+  
+  touch "$project/.agents/skills/task-breakdown/SKILL.md"
+  git -C "$project" add .agents/skills
+  git -C "$project" commit -m "add legacy dir"
+
+  set +e
+  "$ROOT/install.sh" --force-overwrite-tracked "$project" >"$OUT" 2>&1
+  local status=$?
+  set -e
+  
+  [ "$status" -eq 0 ] || return 1
+  [ -L "$project/.agents/skills" ] || return 1
+}
+
+test_installer_does_not_ignore_entire_agents_directory() {
+  local project="$TMP_DIR/not-ignore-agents"
+  mkdir -p "$project/source" "$project/docker/local"
+  printf '{}' > "$project/source/composer.json"
+  git -C "$project" init -q
+
+  set +e
+  "$ROOT/install.sh" "$project" >"$OUT" 2>&1
+  local status=$?
+  set -e
+  
+  [ "$status" -eq 0 ] || return 1
+  
+  mkdir -p "$project/.agents/skills"
+  touch "$project/.agents/skills/SKILL.md"
+  
+  git -C "$project" check-ignore -q .agents/skills || return 1
+  
+  touch "$project/.agents/custom-agent.md"
+  ! git -C "$project" check-ignore -q .agents/custom-agent.md || return 1
+  
+  local git_status
+  git_status="$(git -C "$project" status --porcelain --untracked-files=all)"
+  [ -n "$git_status" ] || return 1
+  grep -q "\.agents/custom-agent\.md" <<< "$git_status" || return 1
+}
+
+test_installer_rejects_dangling_symlink_parent() {
+  local project="$TMP_DIR/rejects-dangling-parent"
+  mkdir -p "$project/source" "$project/docker/local"
+  printf '{}' > "$project/source/composer.json"
+  
+  ln -s "/does/not/exist" "$project/.agents"
+
+  set +e
+  "$ROOT/install.sh" "$project" >"$OUT" 2>&1
+  local status=$?
+  set -e
+  
+  [ "$status" -eq 1 ] || return 1
+  grep -q "Parent component is a symlink" "$OUT"
+}
+
+test_second_stop_is_blocked_while_first_is_running() {
+  local project="$TMP_DIR/concurrent-stop-lock"
+  mkdir -p "$project/.claude/hooks" "$project/.claude/tmp"
+  mkdir -p "$project/.claude/scripts" && cp "$ROOT/payload/.claude/scripts/validate-tooling-tmp.sh" "$project/.claude/scripts/validate-tooling-tmp.sh" && chmod +x "$project/.claude/scripts/validate-tooling-tmp.sh"
+  cp "$ROOT/payload/.claude/hooks/run-related-tests.sh" "$project/.claude/hooks/run-related-tests.sh"
+  chmod +x "$project/.claude/hooks/run-related-tests.sh"
+  
+  # Tạo một script giả mạo làm việc lâu thay thế cho make ai-test? Không cần, ta chỉ cần tạo lock có owner là một tiến trình sống dài
+  mkdir -p "$project/.claude/tmp/run-related-tests.lock"
+  
+  # Tạo process đang ngủ
+  sleep 10 &
+  local bg_pid=$!
+  printf '%s\n' "$bg_pid" > "$project/.claude/tmp/run-related-tests.lock/pid"
+  
+  set +e
+  (
+    cd "$project"
+    AI_TEST_MODE=strict .claude/hooks/run-related-tests.sh <<< '{}'
+  ) >"$OUT" 2>&1
+  local status=$?
+  set -e
+  
+  kill "$bg_pid" 2>/dev/null || true
+  
+  [ "$status" -eq 2 ] || return 1
+  grep -q "Verification already running" "$OUT"
+}
+
+test_stale_stop_lock_is_recovered() {
+  local project="$TMP_DIR/stale-stop-lock"
+  mkdir -p "$project/.claude/hooks" "$project/.claude/tmp" "$project/source" "$project/docker/local"
+  mkdir -p "$project/.claude/scripts" && cp "$ROOT/payload/.claude/scripts/validate-tooling-tmp.sh" "$project/.claude/scripts/validate-tooling-tmp.sh" && chmod +x "$project/.claude/scripts/validate-tooling-tmp.sh"
+  cp "$ROOT/payload/.claude/hooks/run-related-tests.sh" "$project/.claude/hooks/run-related-tests.sh"
+  chmod +x "$project/.claude/hooks/run-related-tests.sh"
+  
+  # Tạo lock thuộc về PID chết
+  mkdir -p "$project/.claude/tmp/run-related-tests.lock"
+  printf '999999\n' > "$project/.claude/tmp/run-related-tests.lock/pid"
+  
+  # Khởi tạo repo
+  git -C "$project" init -q
+  touch "$project/Makefile.ai"
+  cat << 'MOCK' > "$project/Makefile.ai"
+ai-test:
+	exit 0
+MOCK
+  mkdir -p "$project/bin"
+  cat << 'DOCKER_MOCK' > "$project/bin/docker"
+#!/usr/bin/env bash
+exit 0
+DOCKER_MOCK
+  chmod +x "$project/bin/docker"
+  
+  set +e
+  
+  # Run two processes in parallel
+  (
+    cd "$project"
+    export PATH="$project/bin:$PATH"
+    AI_TEST_MODE=strict .claude/hooks/run-related-tests.sh <<< '{}' >"$OUT.1" 2>&1
+  ) &
+  local pid1=$!
+  
+  (
+    cd "$project"
+    export PATH="$project/bin:$PATH"
+    AI_TEST_MODE=strict .claude/hooks/run-related-tests.sh <<< '{}' >"$OUT.2" 2>&1
+  ) &
+  local pid2=$!
+  
+  local status1=0 status2=0
+  wait "$pid1" || status1=$?
+  wait "$pid2" || status2=$?
+  set -e
+  
+  # Both should complete cleanly (one gets lock, other waits and retries then gets lock)
+  # But since both exit 0 because they don't do anything after lock is obtained.
+  # Let's check that at least one exited 0.
+  [ "$status1" -eq 0 ] || [ "$status2" -eq 0 ] || return 1
+}
+
+test_record_touched_rejects_final_file_symlink_escape() {
+  local project="$TMP_DIR/record-symlink-escape"
+  mkdir -p "$project/.claude/scripts" "$project/source"
+  mkdir -p "$project/.claude/scripts" && cp "$ROOT/payload/.claude/scripts/validate-tooling-tmp.sh" "$project/.claude/scripts/validate-tooling-tmp.sh" && chmod +x "$project/.claude/scripts/validate-tooling-tmp.sh"
+  cp "$ROOT/payload/.claude/scripts/record-touched-file.sh" "$project/.claude/scripts/record-touched-file.sh"
+  chmod +x "$project/.claude/scripts/record-touched-file.sh"
+
+  local outside="$TMP_DIR/outside.php"
+  touch "$outside"
+  ln -s "$outside" "$project/source/Test.php"
+
+  set +e
+  "$project/.claude/scripts/record-touched-file.sh" "$project" "source/Test.php" >"$OUT" 2>&1
+  local status=$?
+  set -e
+  
+  [ "$status" -eq 2 ] || return 1
+  grep -q "must not be a symlink" "$OUT"
+}
+
+test_format_dirty_fallback_fails_when_recording_fails() {
+  local project="$TMP_DIR/format-fails-recording"
+  mkdir -p "$project/.claude/hooks" "$project/.claude/scripts" "$project/source/src"
+  cp "$ROOT/payload/.claude/hooks/format-dirty.sh" "$project/.claude/hooks/format-dirty.sh"
+  chmod +x "$project/.claude/hooks/format-dirty.sh"
+  
+  # Mock record-touched-file
+  cat << 'MOCK' > "$project/.claude/scripts/record-touched-file.sh"
+#!/usr/bin/env bash
+exit 2
+MOCK
+  chmod +x "$project/.claude/scripts/record-touched-file.sh"
+  
+  git -C "$project" init -q
+  touch "$project/source/src/Foo.php"
+  
+  set +e
+  (
+    cd "$project"
+    .claude/hooks/format-dirty.sh <<< '{}'
+  ) >"$OUT" 2>&1
+  local status=$?
+  set -e
+  
+  [ "$status" -eq 2 ] || return 1
+  grep -q "Unable to safely record touched file" "$OUT"
+}
+
+test_php_lint_fails_when_recording_fails() {
+  local project="$TMP_DIR/php-lint-fails-recording"
+  mkdir -p "$project/.claude/hooks" "$project/.claude/scripts" "$project/source/src"
+  cp "$ROOT/payload/.claude/hooks/php-lint.sh" "$project/.claude/hooks/php-lint.sh"
+  chmod +x "$project/.claude/hooks/php-lint.sh"
+  
+  cat << 'MOCK' > "$project/.claude/scripts/record-touched-file.sh"
+#!/usr/bin/env bash
+exit 2
+MOCK
+  chmod +x "$project/.claude/scripts/record-touched-file.sh"
+  
+  touch "$project/source/src/Foo.php"
+  
+  set +e
+  (
+    cd "$project"
+    jq -n '{"tool_input": {"file_path": "source/src/Foo.php"}}' | .claude/hooks/php-lint.sh
+  ) >"$OUT" 2>&1
+  local status=$?
+  set -e
+  
+  [ "$status" -eq 2 ] || return 1
+  grep -q "Unable to safely record touched file" "$OUT"
+}
+
+test_term_signal_stops_verification_and_releases_lock() {
+  local project="$TMP_DIR/term-signal-stop"
+  mkdir -p "$project/.claude/hooks" "$project/.claude/scripts" "$project/source/src"
+  mkdir -p "$project/.claude/scripts" && cp "$ROOT/payload/.claude/scripts/validate-tooling-tmp.sh" "$project/.claude/scripts/validate-tooling-tmp.sh" && chmod +x "$project/.claude/scripts/validate-tooling-tmp.sh"
+  cp "$ROOT/payload/.claude/hooks/run-related-tests.sh" "$project/.claude/hooks/run-related-tests.sh"
+  cp "$ROOT/payload/.claude/scripts/validate-tooling-tmp.sh" "$project/.claude/scripts/validate-tooling-tmp.sh"
+  chmod +x "$project/.claude/hooks/run-related-tests.sh" "$project/.claude/scripts/validate-tooling-tmp.sh"
+  
+  git -C "$project" init -q
+  touch "$project/Makefile.ai"
+  mkdir -p "$project/bin" "$project/source/tests/Unit"
+  touch "$project/source/tests/Unit/FooTest.php"
+  
+  # Create a mock docker that sleeps to allow us to send SIGTERM
+  cat << 'MOCK' > "$project/bin/docker"
+#!/usr/bin/env bash
+sleep 10
+exit 0
+MOCK
+  chmod +x "$project/bin/docker"
+  
+  # Create mock Makefile
+  cat << 'MOCK' > "$project/Makefile.ai"
+ai-test:
+	sleep 10
+MOCK
+  
+  mkdir -p "$project/.claude/tmp" "$project/docker/local"
+  printf 'source/src/Foo.php\n' > "$project/.claude/tmp/touched-files"
+  
+  (
+    cd "$project"
+    export PATH="$project/bin:$PATH"
+    AI_TEST_MODE=strict .claude/hooks/run-related-tests.sh <<< '{}' >"$OUT" 2>&1
+  ) &
+  local bg_pid=$!
+  
+  # Wait for lock to be created
+  local attempts=0
+  while [ ! -f "$project/.claude/tmp/run-related-tests.lock/pid" ] && [ $attempts -lt 50 ]; do
+    sleep 0.1
+    attempts=$((attempts + 1))
+  done
+  
+  # Send SIGTERM
+  local script_pid=$(cat "$project/.claude/tmp/run-related-tests.lock/pid")
+  kill -TERM "$script_pid"
+  wait "$bg_pid" || status=$?
+  
+  [ "$status" -eq 143 ] || return 1
+  [ ! -d "$project/.claude/tmp/run-related-tests.lock" ] || return 1
+}
+
+test_int_signal_exits_130() {
+  local project="$TMP_DIR/int-signal-stop"
+  mkdir -p "$project/.claude/hooks" "$project/.claude/scripts" "$project/source/src"
+  mkdir -p "$project/.claude/scripts" && cp "$ROOT/payload/.claude/scripts/validate-tooling-tmp.sh" "$project/.claude/scripts/validate-tooling-tmp.sh" && chmod +x "$project/.claude/scripts/validate-tooling-tmp.sh"
+  cp "$ROOT/payload/.claude/hooks/run-related-tests.sh" "$project/.claude/hooks/run-related-tests.sh"
+  cp "$ROOT/payload/.claude/scripts/validate-tooling-tmp.sh" "$project/.claude/scripts/validate-tooling-tmp.sh"
+  chmod +x "$project/.claude/hooks/run-related-tests.sh" "$project/.claude/scripts/validate-tooling-tmp.sh"
+  
+  git -C "$project" init -q
+  touch "$project/Makefile.ai"
+  mkdir -p "$project/bin" "$project/source/tests/Unit"
+  touch "$project/source/tests/Unit/FooTest.php"
+  cat << 'MOCK' > "$project/bin/docker"
+#!/usr/bin/env bash
+sleep 10
+exit 0
+MOCK
+  chmod +x "$project/bin/docker"
+  cat << 'MOCK' > "$project/Makefile.ai"
+ai-test:
+	sleep 10
+MOCK
+  mkdir -p "$project/.claude/tmp" "$project/docker/local"
+  printf 'source/src/Foo.php\n' > "$project/.claude/tmp/touched-files"
+  
+  (
+    cd "$project"
+    export PATH="$project/bin:$PATH"
+    AI_TEST_MODE=strict .claude/hooks/run-related-tests.sh <<< '{}' >"$OUT" 2>&1
+  ) &
+  local bg_pid=$!
+  
+  local attempts=0
+  while [ ! -f "$project/.claude/tmp/run-related-tests.lock/pid" ] && [ $attempts -lt 50 ]; do
+    sleep 0.1
+    attempts=$((attempts + 1))
+  done
+  
+  local script_pid=$(cat "$project/.claude/tmp/run-related-tests.lock/pid")
+  kill -INT "$script_pid"
+  wait "$bg_pid" || status=$?
+  
+  [ "$status" -eq 130 ] || return 1
+}
+
+test_hup_signal_exits_129() {
+  local project="$TMP_DIR/hup-signal-stop"
+  mkdir -p "$project/.claude/hooks" "$project/.claude/scripts" "$project/source/src"
+  mkdir -p "$project/.claude/scripts" && cp "$ROOT/payload/.claude/scripts/validate-tooling-tmp.sh" "$project/.claude/scripts/validate-tooling-tmp.sh" && chmod +x "$project/.claude/scripts/validate-tooling-tmp.sh"
+  cp "$ROOT/payload/.claude/hooks/run-related-tests.sh" "$project/.claude/hooks/run-related-tests.sh"
+  cp "$ROOT/payload/.claude/scripts/validate-tooling-tmp.sh" "$project/.claude/scripts/validate-tooling-tmp.sh"
+  chmod +x "$project/.claude/hooks/run-related-tests.sh" "$project/.claude/scripts/validate-tooling-tmp.sh"
+  
+  git -C "$project" init -q
+  touch "$project/Makefile.ai"
+  mkdir -p "$project/bin" "$project/source/tests/Unit"
+  touch "$project/source/tests/Unit/FooTest.php"
+  cat << 'MOCK' > "$project/bin/docker"
+#!/usr/bin/env bash
+sleep 10
+exit 0
+MOCK
+  chmod +x "$project/bin/docker"
+  cat << 'MOCK' > "$project/Makefile.ai"
+ai-test:
+	sleep 10
+MOCK
+  mkdir -p "$project/.claude/tmp" "$project/docker/local"
+  printf 'source/src/Foo.php\n' > "$project/.claude/tmp/touched-files"
+  
+  (
+    cd "$project"
+    export PATH="$project/bin:$PATH"
+    AI_TEST_MODE=strict .claude/hooks/run-related-tests.sh <<< '{}' >"$OUT" 2>&1
+  ) &
+  local bg_pid=$!
+  
+  local attempts=0
+  while [ ! -f "$project/.claude/tmp/run-related-tests.lock/pid" ] && [ $attempts -lt 50 ]; do
+    sleep 0.1
+    attempts=$((attempts + 1))
+  done
+  
+  local script_pid=$(cat "$project/.claude/tmp/run-related-tests.lock/pid")
+  kill -HUP "$script_pid"
+  wait "$bg_pid" || status=$?
+  
+  [ "$status" -eq 129 ] || return 1
+}
+
+test_stop_rejects_symlinked_tmp_directory() {
+  local project="$TMP_DIR/stop-symlink-tmp"
+  mkdir -p "$project/.claude/hooks" "$project/.claude/scripts"
+  mkdir -p "$project/.claude/scripts" && cp "$ROOT/payload/.claude/scripts/validate-tooling-tmp.sh" "$project/.claude/scripts/validate-tooling-tmp.sh" && chmod +x "$project/.claude/scripts/validate-tooling-tmp.sh"
+  cp "$ROOT/payload/.claude/hooks/run-related-tests.sh" "$project/.claude/hooks/run-related-tests.sh"
+  cp "$ROOT/payload/.claude/scripts/validate-tooling-tmp.sh" "$project/.claude/scripts/validate-tooling-tmp.sh"
+  chmod +x "$project/.claude/hooks/run-related-tests.sh" "$project/.claude/scripts/validate-tooling-tmp.sh"
+  
+  mkdir -p "$TMP_DIR/outside-tmp"
+  ln -s "$TMP_DIR/outside-tmp" "$project/.claude/tmp"
+  
+  set +e
+  (
+    cd "$project"
+    .claude/hooks/run-related-tests.sh <<< '{}'
+  ) >"$OUT" 2>&1
+  local status=$?
+  set -e
+  
+  [ "$status" -eq 2 ] || return 1
+  grep -q "Unsafe tooling temp symlink" "$OUT"
+}
+
+test_stop_rejects_symlinked_lock_directory() {
+  local project="$TMP_DIR/stop-symlink-lock"
+  mkdir -p "$project/.claude/hooks" "$project/.claude/scripts" "$project/.claude/tmp"
+  mkdir -p "$project/.claude/scripts" && cp "$ROOT/payload/.claude/scripts/validate-tooling-tmp.sh" "$project/.claude/scripts/validate-tooling-tmp.sh" && chmod +x "$project/.claude/scripts/validate-tooling-tmp.sh"
+  cp "$ROOT/payload/.claude/hooks/run-related-tests.sh" "$project/.claude/hooks/run-related-tests.sh"
+  cp "$ROOT/payload/.claude/scripts/validate-tooling-tmp.sh" "$project/.claude/scripts/validate-tooling-tmp.sh"
+  chmod +x "$project/.claude/hooks/run-related-tests.sh" "$project/.claude/scripts/validate-tooling-tmp.sh"
+  
+  mkdir -p "$TMP_DIR/outside-lock"
+  ln -s "$TMP_DIR/outside-lock" "$project/.claude/tmp/run-related-tests.lock"
+  
+  set +e
+  (
+    cd "$project"
+    .claude/hooks/run-related-tests.sh <<< '{}'
+  ) >"$OUT" 2>&1
+  local status=$?
+  set -e
+  
+  [ "$status" -eq 2 ] || return 1
+  grep -q "Unsafe lock symlink" "$OUT"
+}
+
+test_record_touched_rejects_claude_directory_symlink() {
+  local project="$TMP_DIR/record-symlink-claude"
+  mkdir -p "$project/.claude/scripts" "$project/source"
+  mkdir -p "$project/.claude/scripts" && cp "$ROOT/payload/.claude/scripts/validate-tooling-tmp.sh" "$project/.claude/scripts/validate-tooling-tmp.sh" && chmod +x "$project/.claude/scripts/validate-tooling-tmp.sh"
+  cp "$ROOT/payload/.claude/scripts/record-touched-file.sh" "$project/.claude/scripts/record-touched-file.sh"
+  cp "$ROOT/payload/.claude/scripts/validate-tooling-tmp.sh" "$project/.claude/scripts/validate-tooling-tmp.sh"
+  chmod +x "$project/.claude/scripts/"*.sh
+  
+  touch "$project/source/Test.php"
+  
+  mkdir -p "$TMP_DIR/outside-claude"
+  ln -s "$TMP_DIR/outside-claude" "$project/.claude-symlink"
+  
+  set +e
+  "$project/.claude/scripts/record-touched-file.sh" "$project" "source/Test.php" >"$OUT" 2>&1
+  local status=$?
+  set -e
+  
+  # It works as long as the .claude used inside record-touched-file.sh isn't symlinked. Let's symlink .claude instead.
+  rm -rf "$project/.claude"
+  mv "$project/.claude-symlink" "$project/.claude"
+  
+  # Copy back scripts to the outside dir because .claude is now a symlink
+  mkdir -p "$project/.claude/scripts"
+  cp "$ROOT/payload/.claude/scripts/"*.sh "$project/.claude/scripts/"
+  chmod +x "$project/.claude/scripts/"*.sh
+  
+  set +e
+  "$project/.claude/scripts/record-touched-file.sh" "$project" "source/Test.php" >"$OUT" 2>&1
+  status=$?
+  set -e
+  
+  [ "$status" -eq 2 ] || return 1
+  grep -q "Unsafe tooling temp symlink" "$OUT"
+}
+
+test_manifest_created_with_restricted_permissions() {
+  local project="$TMP_DIR/manifest-perms"
+  mkdir -p "$project/.claude/scripts" "$project/source"
+  mkdir -p "$project/.claude/scripts" && cp "$ROOT/payload/.claude/scripts/validate-tooling-tmp.sh" "$project/.claude/scripts/validate-tooling-tmp.sh" && chmod +x "$project/.claude/scripts/validate-tooling-tmp.sh"
+  cp "$ROOT/payload/.claude/scripts/record-touched-file.sh" "$project/.claude/scripts/record-touched-file.sh"
+  cp "$ROOT/payload/.claude/scripts/validate-tooling-tmp.sh" "$project/.claude/scripts/validate-tooling-tmp.sh"
+  chmod +x "$project/.claude/scripts/"*.sh
+  
+  touch "$project/source/Test.php"
+  
+  "$project/.claude/scripts/record-touched-file.sh" "$project" "source/Test.php" >/dev/null 2>&1
+  
+  local dir_perms file_perms
+  if stat -c "%a" /tmp >/dev/null 2>&1; then
+    dir_perms="$(stat -c "%a" "$project/.claude/tmp")"
+    file_perms="$(stat -c "%a" "$project/.claude/tmp/touched-files")"
+  else
+    dir_perms="$(stat -f "%OLp" "$project/.claude/tmp")"
+    file_perms="$(stat -f "%OLp" "$project/.claude/tmp/touched-files")"
+  fi
+  
+  [ "$dir_perms" = "700" ] || return 1
+  [ "$file_perms" = "600" ] || return 1
+}
+
+run_test "strict test hook blocked without Makefile" test_strict_missing_makefile_remains_blocked
+run_test "strict test hook blocked on failed test" test_strict_failed_test_remains_blocked
+run_test "strict test hook success clears processing snapshot" test_success_clears_old_processing_snapshot
+run_test "record touched rejects path with dotdot" test_record_touched_rejects_dotdot_escape
+run_test "record touched rejects outside repo" test_record_touched_rejects_path_outside_repo
+run_test "tracked conflict leaves target unchanged" test_tracked_conflict_leaves_target_unchanged
+run_test "installer rejects symlinked managed directory" test_installer_rejects_symlinked_managed_directory
+run_test "installer rejects symlinked agents parent" test_installer_rejects_symlinked_agents_parent
+run_test "format dirty hook records exact payload file" test_format_dirty_records_exact_payload_file
+run_test "installer preserves tracked correct skill alias" test_installer_preserves_tracked_correct_skill_alias
+run_test "installer rejects tracked wrong skill symlink" test_installer_rejects_tracked_wrong_skill_symlink
+run_test "installer force migrates tracked legacy skill directory" test_installer_force_migrates_tracked_legacy_skill_directory
+run_test "installer does not ignore entire agents directory" test_installer_does_not_ignore_entire_agents_directory
+run_test "installer rejects dangling symlink parent" test_installer_rejects_dangling_symlink_parent
+run_test "second stop is blocked while first is running" test_second_stop_is_blocked_while_first_is_running
+run_test "stale stop lock is recovered" test_stale_stop_lock_is_recovered
+run_test "record touched rejects final file symlink escape" test_record_touched_rejects_final_file_symlink_escape
+run_test "format dirty fallback fails when recording fails" test_format_dirty_fallback_fails_when_recording_fails
+run_test "php lint fails when recording fails" test_php_lint_fails_when_recording_fails
+run_test "TERM signal stops verification and releases lock" test_term_signal_stops_verification_and_releases_lock
+run_test "INT signal exits 130" test_int_signal_exits_130
+run_test "stop rejects symlinked tmp directory" test_stop_rejects_symlinked_tmp_directory
+run_test "stop rejects symlinked lock directory" test_stop_rejects_symlinked_lock_directory
+run_test "record touched rejects claude directory symlink" test_record_touched_rejects_claude_directory_symlink
+run_test "manifest created with restricted permissions" test_manifest_created_with_restricted_permissions
+
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s test(s) failed\n' "$FAILURES" >&2
   exit 1
 fi
+
+

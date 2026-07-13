@@ -21,6 +21,30 @@ case "$TEST_MODE" in
     ;;
 esac
 
+SNAPSHOT_FILE=""
+CONSUMED_SNAPSHOTS=()
+
+cleanup_consumed_snapshots() {
+  local f
+  for f in "${CONSUMED_SNAPSHOTS[@]}"; do
+    rm -f -- "$f" 2>/dev/null || true
+  done
+}
+
+verification_succeeded() {
+  cleanup_consumed_snapshots
+  exit 0
+}
+
+verification_failed() {
+  exit 2
+}
+
+advisory_completed() {
+  cleanup_consumed_snapshots
+  exit 0
+}
+
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SRC="$REPO_ROOT/source"
 INPUT="$(cat)"
@@ -30,13 +54,57 @@ if command -v jq >/dev/null 2>&1; then
   fi
 fi
 
+LOCK_DIR="$REPO_ROOT/.claude/tmp/run-related-tests.lock"
+LOCK_PID_FILE="$LOCK_DIR/pid"
+
+acquire_lock() {
+  mkdir -p "$REPO_ROOT/.claude/tmp"
+  if mkdir "$LOCK_DIR" 2>/dev/null; then
+    printf '%s\n' "$$" > "$LOCK_PID_FILE"
+    return 0
+  fi
+  
+  local old_pid=""
+  if [ -f "$LOCK_PID_FILE" ]; then
+    old_pid="$(cat "$LOCK_PID_FILE" 2>/dev/null || true)"
+  fi
+  
+  case "$old_pid" in
+    ''|*[!0-9]*) ;;
+    *)
+      if kill -0 "$old_pid" 2>/dev/null; then
+        printf '[run-related-tests hook] Another verification is running (PID %s).\n' "$old_pid" >&2
+        return 1
+      fi
+      ;;
+  esac
+  
+  rm -rf -- "$LOCK_DIR"
+  if mkdir "$LOCK_DIR" 2>/dev/null; then
+    printf '%s\n' "$$" > "$LOCK_PID_FILE"
+    return 0
+  fi
+  return 1
+}
+
+if ! acquire_lock; then
+  exit 2
+fi
+
+cleanup_lock() {
+  local current_pid="$(cat "$LOCK_PID_FILE" 2>/dev/null || true)"
+  if [ "$current_pid" = "$$" ]; then
+    rm -rf -- "$LOCK_DIR"
+  fi
+}
+
 unverified() {
   echo "[run-related-tests hook] ⚠️ UNVERIFIED — $1" >&2
   if [ "$TEST_MODE" = "strict" ]; then
     echo "[mode=strict] Chặn: không thể xác minh test liên quan." >&2
-    exit 2
+    verification_failed
   fi
-  exit 0
+  advisory_completed
 }
 
 [ -d "$SRC" ] || unverified "source directory không tồn tại: $SRC"
@@ -47,7 +115,7 @@ git -C "$REPO_ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1 ||
 
 CHANGED_FILES_TMP="$(mktemp "${TMPDIR:-/tmp}/run-related-tests.changed.XXXXXX")"
 GIT_ERRORS_TMP="$(mktemp "${TMPDIR:-/tmp}/run-related-tests.git-errors.XXXXXX")"
-trap 'rm -f "$CHANGED_FILES_TMP" "$GIT_ERRORS_TMP"' EXIT
+trap 'cleanup_lock; rm -f "$CHANGED_FILES_TMP" "$GIT_ERRORS_TMP"' EXIT HUP INT TERM
 
 has_make_target() {
   [ -f "$REPO_ROOT/Makefile.ai" ]
@@ -85,11 +153,28 @@ collect_changed_once() {
   : > "$CHANGED_FILES_TMP"
   : > "$GIT_ERRORS_TMP"
 
-  # Ưu tiên đọc từ touched-files được ghi bởi PostToolUse hook
+  # Snapshot mechanism: đổi tên file để tránh làm mất ghi nhận mới trong khi test đang chạy
   TOUCHED_FILES="$REPO_ROOT/.claude/tmp/touched-files"
+  SNAPSHOT_FILE="$TOUCHED_FILES.processing.$$"
+  
   if [ -s "$TOUCHED_FILES" ]; then
-    cat "$TOUCHED_FILES" | sort -u >> "$CHANGED_FILES_TMP"
-    rm -f "$TOUCHED_FILES" # Dọn dẹp sau khi đọc
+    mv "$TOUCHED_FILES" "$SNAPSHOT_FILE" 2>/dev/null || true
+  fi
+
+  has_snapshot=0
+  for f in "$TOUCHED_FILES" "$TOUCHED_FILES.processing."*; do
+    if [ -s "$f" ]; then
+      cat "$f" >> "$CHANGED_FILES_TMP"
+      # Chỉ đưa processing snapshots vào danh sách dọn dẹp
+      case "$f" in
+        *.processing.*) CONSUMED_SNAPSHOTS+=("$f") ;;
+      esac
+      has_snapshot=1
+    fi
+  done
+
+  if [ "$has_snapshot" = "1" ]; then
+    sort -u -o "$CHANGED_FILES_TMP" "$CHANGED_FILES_TMP"
     return
   fi
 
@@ -164,9 +249,9 @@ if [ -z "$tests_to_run" ]; then
     } >&2
   fi
   if [ "$TEST_MODE" = "strict" ] && [ -n "$changed_php" ]; then
-    exit 2
+    verification_failed
   fi
-  exit 0
+  advisory_completed
 fi
 
 # Kiểm tra Docker — KHÔNG fallback sang host
@@ -183,16 +268,17 @@ if ! container_up; then
       echo "[mode=strict] Chặn: không thể xác minh test liên quan."
     fi
   } >&2
-  [ "$TEST_MODE" = "strict" ] && exit 2
-  exit 0
+  [ "$TEST_MODE" = "strict" ] && verification_failed
+  advisory_completed
 fi
 
 while IFS= read -r test_file; do
   [ -z "$test_file" ] && continue
   if ! AI_TEST="$test_file" make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-test; then
     echo "[run-related-tests hook] Unit test FAILED: ${test_file}" >&2
-    exit 2
+    verification_failed
   fi
 done < <(printf '%s\n' "$tests_to_run" | tr ' ' '\n' | sed '/^$/d')
 
-exit 0
+verification_succeeded
+

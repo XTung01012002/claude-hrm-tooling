@@ -38,11 +38,11 @@ if [ "$MODE" = "--apply" ] && [ -n "$(git -C "$TOOLING_ROOT" status --porcelain 
 fi
 
 # --- Danh sách paths cần sync ---
-paths="CLAUDE.md AGENTS.md Makefile.ai docs/ai .claude/commands .claude/hooks .claude/scripts .claude/settings.json .claude/skills .agent .codex"
+source "$(dirname "$0")/lib/managed-paths.sh"
 
 if [ "$MODE" = "--apply" ]; then
   missing_paths=""
-  for p in $paths; do
+  for p in "${MANAGED_PATHS[@]}"; do
     [ -e "$SRC/$p" ] || missing_paths="${missing_paths}
 $p"
   done
@@ -97,7 +97,7 @@ replace_path_from_stage() {
 }
 
 changed=0
-for p in $paths; do
+for p in "${MANAGED_PATHS[@]}"; do
   if [ -e "$SRC/$p" ]; then
     if [ "$MODE" = "--dry-run" ]; then
       echo "  [dry-run] <= $p"
