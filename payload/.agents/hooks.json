@@ -1,5 +1,4 @@
 {
-  "//": "Antigravity hooks (best-effort — bản IDE BỎ QUA, chỉ chạy ở bản CLI; enforcement thật nằm ở AGENTS.md). XÁC MINH bằng lệnh /hooks trong Antigravity. Nếu không nhận: thử đặt ở .agents/hooks.json hoặc ~/.gemini/config/hooks.json, và chỉnh 'matcher' cho khớp tên tool sửa file của bản bạn.",
   "hooks": {
     "PreToolUse": [
       {
@@ -15,7 +14,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "apply_patch|Edit|Write",
+        "matcher": "write_to_file|replace_file_content|apply_patch|Edit|Write",
         "hooks": [
           {
             "type": "command",

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Cài bộ AI tooling (CLAUDE.md, AGENTS.md, docs/ai, .claude/commands+hooks,
-#   .agent/workflows cho Antigravity) từ repo này vào một project,
+#   .agents/workflows cho Antigravity) từ repo này vào một project,
 #   + (tùy chọn) Codex global prompts vào ~/.codex/prompts.
 #
 # Usage: ./install.sh /duong-dan/toi/hrm-api
@@ -63,7 +63,7 @@ if ! command -v jq >/dev/null 2>&1; then
   exit 1
 fi
 
-for json_file in "$SNIPPET" "$SRC/.claude/settings.json" "$SRC/.agent/hooks.json" "$SRC/.codex/hooks.json"; do
+for json_file in "$SNIPPET" "$SRC/.claude/settings.json" "$SRC/.agents/hooks.json" "$SRC/.codex/hooks.json"; do
   if [ -f "$json_file" ]; then
     jq empty "$json_file" >/dev/null || {
       echo "❌ JSON không hợp lệ: $json_file" >&2
@@ -259,7 +259,7 @@ if [ -d "$TARGET/.git" ] || [ -f "$TARGET/.git" ]; then
       *) EXCLUDE="$TARGET/$EXCLUDE" ;;
     esac
     mkdir -p "$(dirname "$EXCLUDE")"
-    for p in CLAUDE.md AGENTS.md .claude/ .agent/ .codex/ docs/ai/ Makefile.ai '*.bak' '*.bak.*' '.claude/tooling-backups/' 'skills/' '.agents/skills'; do
+    for p in CLAUDE.md AGENTS.md .claude/ .agent/ .codex/ docs/ai/ Makefile.ai '*.bak' '*.bak.*' '.claude/tooling-backups/' 'skills/' '.agents/hooks.json' '.agents/workflows/' '.agents/skills'; do
       grep -qxF "$p" "$EXCLUDE" 2>/dev/null || printf '%s\n' "$p" >> "$EXCLUDE"
     done
     echo "  + da them file AI vao $EXCLUDE (giu ngoai git team)"
@@ -267,7 +267,7 @@ if [ -d "$TARGET/.git" ] || [ -f "$TARGET/.git" ]; then
 fi
 
 echo
-echo "Da cai: Claude (.claude/commands+hooks), Antigravity (.agent/workflows), Codex (~/.codex/prompts neu co)."
+echo "Da cai: Claude (.claude/commands+hooks), Antigravity (.agents/workflows+hooks), Codex (~/.codex/prompts neu co)."
 
 # Cấu hình cài đặt settings.local.json thông qua jq deep merge (append + dedup arrays)
 echo "Đang cấu hình settings.local.json..."
