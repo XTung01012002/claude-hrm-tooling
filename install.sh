@@ -38,8 +38,50 @@ if [ ! -f "$TARGET/source/composer.json" ] && [ ! -d "$TARGET/docker/local" ]; t
   exit 1
 fi
 
+umask 077
+
+validate_parent_chain() {
+  local path="$1"
+  local current=""
+  IFS='/' read -ra PARTS <<< "$path"
+  local max=$(( ${#PARTS[@]} - 1 ))
+  for ((i=0; i<max; i++)); do
+    local part="${PARTS[i]}"
+    [ -z "$part" ] && continue
+    current="$current/$part"
+    if [ -L "$current" ]; then
+      printf 'Parent component is a symlink: %s\n' "$current" >&2
+      return 1
+    fi
+    if [ -e "$current" ] && [ ! -d "$current" ]; then
+      printf 'Parent component is not a directory: %s\n' "$current" >&2
+      return 1
+    fi
+  done
+  return 0
+}
+
+validate_regular_file_target() {
+  local path="$1"
+  local label="$2"
+
+  validate_parent_chain "$path" || return 1
+
+  if [ -L "$path" ]; then
+    printf 'Unsafe %s symlink: %s\n' "$label" "$path" >&2
+    return 1
+  fi
+
+  if [ -e "$path" ] && [ ! -f "$path" ]; then
+    printf '%s path is not a regular file: %s\n' "$label" "$path" >&2
+    return 1
+  fi
+}
+
 # PAT Guard preflight check
 SETTINGS_FILE="$TARGET/.claude/settings.local.json"
+validate_regular_file_target "$SETTINGS_FILE" "settings.local.json" || exit 1
+
 if [ -f "$SETTINGS_FILE" ]; then
   if grep -q -E "ghp_|github_pat_" "$SETTINGS_FILE" 2>/dev/null; then
     echo "🚨 CẢNH BÁO: Phát hiện chuỗi giống Token (PAT) trong $SETTINGS_FILE!" >&2
@@ -85,27 +127,6 @@ echo "Cai tooling vao: $TARGET"
 TRACKED_CONFLICTS=0
 SYMLINK_ESCAPES=0
 
-validate_parent_chain() {
-  local path="$1"
-  local current=""
-  IFS='/' read -ra PARTS <<< "$path"
-  local max=$(( ${#PARTS[@]} - 1 ))
-  for ((i=0; i<max; i++)); do
-    local part="${PARTS[i]}"
-    [ -z "$part" ] && continue
-    current="$current/$part"
-    if [ -L "$current" ]; then
-      printf 'Parent component is a symlink: %s\n' "$current" >&2
-      return 1
-    fi
-    if [ -e "$current" ] && [ ! -d "$current" ]; then
-      printf 'Parent component is not a directory: %s\n' "$current" >&2
-      return 1
-    fi
-  done
-  return 0
-}
-
 # Gom danh sách các file vật lý từ MANAGED_PATHS để kiểm tra
 FILES_TO_INSTALL=()
 while IFS= read -r f; do
@@ -120,6 +141,82 @@ done < <(
     fi
   done
 )
+
+NEW_MANAGED_PATHS=()
+for rel in "${FILES_TO_INSTALL[@]}"; do
+  NEW_MANAGED_PATHS+=("$rel")
+done
+NEW_MANAGED_PATHS+=(".agents/skills" ".claude/skills" ".claude/tooling-version" ".claude/tooling-manifest")
+
+is_new_managed_path() {
+  local needle="$1"
+  local item
+  for item in "${NEW_MANAGED_PATHS[@]}"; do
+    [ "$item" = "$needle" ] && return 0
+  done
+  return 1
+}
+
+backup_or_remove_owned_path() {
+  local rel="$1"
+  local dest="$TARGET/$rel"
+  local stamp backup
+
+  [ -e "$dest" ] || [ -L "$dest" ] || return 0
+
+  stamp="$(date +%Y%m%d-%H%M%S).$$"
+  backup="$dest.bak.$stamp"
+  mkdir -p "$(dirname "$backup")"
+  mv "$dest" "$backup"
+  echo "  ! Đã sao lưu managed path cũ: ${backup#$TARGET/}"
+}
+
+cleanup_empty_parents() {
+  local rel="$1"
+  local dir="$TARGET/$(dirname "$rel")"
+
+  while [ "$dir" != "$TARGET" ] && [ "$dir" != "/" ]; do
+    rmdir "$dir" 2>/dev/null || break
+    dir="$(dirname "$dir")"
+  done
+}
+
+prune_stale_managed_paths() {
+  local manifest="$TARGET/.claude/tooling-manifest"
+  local old_rel
+
+  # Migration from older Antigravity layout. Backup instead of deleting to
+  # preserve any local edits while removing the stale discovery path.
+  if [ -e "$TARGET/.agent" ] || [ -L "$TARGET/.agent" ]; then
+    backup_or_remove_owned_path ".agent"
+  fi
+
+  if [ -e "$manifest" ] || [ -L "$manifest" ]; then
+    validate_regular_file_target "$manifest" "tooling manifest" || exit 1
+    while IFS= read -r old_rel; do
+      [ -n "$old_rel" ] || continue
+      case "$old_rel" in
+        /* | *..*) continue ;;
+      esac
+      if ! is_new_managed_path "$old_rel"; then
+        backup_or_remove_owned_path "$old_rel"
+        cleanup_empty_parents "$old_rel"
+      fi
+    done < "$manifest"
+  fi
+}
+
+write_tooling_manifest() {
+  local manifest="$TARGET/.claude/tooling-manifest"
+  local manifest_tmp
+
+  validate_regular_file_target "$manifest" "tooling manifest" || exit 1
+  mkdir -p "$(dirname "$manifest")"
+  manifest_tmp="$(mktemp "$TARGET/.claude/tooling-manifest.tmp.XXXXXX")"
+  printf '%s\n' "${NEW_MANAGED_PATHS[@]}" | LC_ALL=C sort -u > "$manifest_tmp"
+  chmod 600 "$manifest_tmp"
+  mv "$manifest_tmp" "$manifest"
+}
 
 for rel in "${FILES_TO_INSTALL[@]}"; do
   dest="$TARGET/$rel"
@@ -202,7 +299,7 @@ for rel in "${FILES_TO_INSTALL[@]}"; do
   if [ -f "$dest" ] && ! cmp -s "$SRC/$rel" "$dest"; then
     stamp="$(date +%Y%m%d-%H%M%S).$$"
     backup="$dest.bak.$stamp"
-    cp -- "$dest" "$backup"
+    cp "$dest" "$backup"
     echo "  ! Đã sao lưu file cũ: ${backup#$TARGET/}"
   fi
   cp "$SRC/$rel" "$dest"
@@ -240,12 +337,38 @@ chmod +x "$TARGET/.claude/scripts/"*.sh 2>/dev/null || true
 
 # (Tùy chọn) Codex global slash commands: ~/.codex/prompts (dùng chung nội dung với .claude/commands, có namespace)
 if [ -d "$HOME/.codex" ]; then
-  mkdir -p "$HOME/.codex/prompts"
+  CODEX_PROMPTS_DIR="$HOME/.codex/prompts"
+  validate_parent_chain "$CODEX_PROMPTS_DIR/.keep" || exit 1
+  if [ -L "$CODEX_PROMPTS_DIR" ]; then
+    echo "Unsafe Codex prompts symlink: $CODEX_PROMPTS_DIR" >&2
+    exit 1
+  fi
+  if [ -e "$CODEX_PROMPTS_DIR" ] && [ ! -d "$CODEX_PROMPTS_DIR" ]; then
+    echo "Codex prompts path is not a directory: $CODEX_PROMPTS_DIR" >&2
+    exit 1
+  fi
+  mkdir -p "$CODEX_PROMPTS_DIR"
+
+  current_codex_prompts="$(mktemp "${TMPDIR:-/tmp}/hrm-codex-prompts.XXXXXX")"
   for cmd in "$SRC"/.claude/commands/*.md; do
     [ -f "$cmd" ] || continue
     base="$(basename "$cmd")"
-    cp "$cmd" "$HOME/.codex/prompts/hrm-${base}"
+    prompt_dest="$CODEX_PROMPTS_DIR/hrm-${base}"
+    validate_regular_file_target "$prompt_dest" "Codex prompt" || exit 1
+    cp "$cmd" "$prompt_dest"
+    printf '%s\n' "hrm-${base}" >> "$current_codex_prompts"
   done
+
+  for old_prompt in "$CODEX_PROMPTS_DIR"/hrm-*.md; do
+    [ -e "$old_prompt" ] || [ -L "$old_prompt" ] || continue
+    old_base="$(basename "$old_prompt")"
+    if ! grep -qxF "$old_base" "$current_codex_prompts" 2>/dev/null; then
+      stamp="$(date +%Y%m%d-%H%M%S).$$"
+      mv "$old_prompt" "$old_prompt.bak.$stamp"
+      echo "  ! Đã sao lưu Codex prompt cũ: ${old_prompt#$CODEX_PROMPTS_DIR/}.bak.$stamp"
+    fi
+  done
+  rm -f "$current_codex_prompts"
   echo "  + ~/.codex/prompts/hrm-*.md (Codex slash commands: /prompts:hrm-review, /prompts:hrm-verify, ...)"
 fi
 
@@ -259,7 +382,7 @@ if [ -d "$TARGET/.git" ] || [ -f "$TARGET/.git" ]; then
       *) EXCLUDE="$TARGET/$EXCLUDE" ;;
     esac
     mkdir -p "$(dirname "$EXCLUDE")"
-    for p in CLAUDE.md AGENTS.md .claude/ .agent/ .codex/ docs/ai/ Makefile.ai '*.bak' '*.bak.*' '.claude/tooling-backups/' 'skills/' '.agents/hooks.json' '.agents/workflows/' '.agents/skills'; do
+    for p in CLAUDE.md AGENTS.md .claude/ .codex/ docs/ai/ Makefile.ai '*.bak' '*.bak.*' '.claude/tooling-backups/' 'skills/' '.agents/hooks.json' '.agents/workflows/' '.agents/skills'; do
       grep -qxF "$p" "$EXCLUDE" 2>/dev/null || printf '%s\n' "$p" >> "$EXCLUDE"
     done
     echo "  + da them file AI vao $EXCLUDE (giu ngoai git team)"
@@ -272,13 +395,31 @@ echo "Da cai: Claude (.claude/commands+hooks), Antigravity (.agents/workflows+ho
 # Cấu hình cài đặt settings.local.json thông qua jq deep merge (append + dedup arrays)
 echo "Đang cấu hình settings.local.json..."
 MERGE_OK=0
+validate_regular_file_target "$SETTINGS_FILE" "settings.local.json" || exit 1
 mkdir -p "$(dirname "$SETTINGS_FILE")"
-if [ ! -f "$SETTINGS_FILE" ]; then
-  echo "{}" > "$SETTINGS_FILE"
+if [ ! -e "$SETTINGS_FILE" ]; then
+  settings_init_tmp="$(mktemp "$TARGET/.claude/settings.local.json.init.XXXXXX")"
+  printf '{}\n' > "$settings_init_tmp"
+  chmod 600 "$settings_init_tmp"
+  mv "$settings_init_tmp" "$SETTINGS_FILE"
 fi
 if [ -f "$SNIPPET" ]; then
-  # Deep merge: object keys merge đệ quy, arrays append + deduplicate (idempotent)
+  settings_tmp="$(mktemp "$TARGET/.claude/settings.local.json.tmp.XXXXXX")"
+  chmod 600 "$settings_tmp"
+  # Deep merge: strip managed hook commands first, then append current snippet.
   if jq -n --slurpfile base "$SETTINGS_FILE" --slurpfile new "$SNIPPET" '
+    def is_managed_hook:
+      type == "object"
+      and ((.command? // "") | type == "string")
+      and ((.command? // "") | contains("/.claude/hooks/"));
+    def strip_managed_hooks:
+      if type == "array" then
+        [ .[] | strip_managed_hooks | select(is_managed_hook | not) ]
+      elif type == "object" then
+        with_entries(.value |= strip_managed_hooks)
+      else
+        .
+      end;
     def deep_merge($b):
       if type == "object" and ($b | type) == "object" then
         . as $a | reduce ($b | keys[]) as $k ($a;
@@ -289,13 +430,13 @@ if [ -f "$SNIPPET" ]; then
         [.[], $b[]] | unique_by(tojson)
       else $b
       end;
-    $base[0] | deep_merge($new[0])
-  ' > "${SETTINGS_FILE}.tmp"; then
-    mv "${SETTINGS_FILE}.tmp" "$SETTINGS_FILE"
-    echo "  + Đã merge hooks vào $SETTINGS_FILE (arrays append + dedup, idempotent)."
+    ($base[0] | strip_managed_hooks) | deep_merge($new[0])
+  ' > "$settings_tmp" && jq empty "$settings_tmp" >/dev/null; then
+    mv "$settings_tmp" "$SETTINGS_FILE"
+    echo "  + Đã merge hooks vào $SETTINGS_FILE (replace managed hooks + dedup, idempotent)."
     MERGE_OK=1
   else
-    rm -f "${SETTINGS_FILE}.tmp"
+    rm -f "$settings_tmp"
     echo "❌ Merge hooks THẤT BẠI — kiểm tra lại $SETTINGS_FILE và chạy lại install.sh." >&2
   fi
 fi
@@ -310,7 +451,12 @@ if [ -f "$(dirname "$0")/VERSION" ]; then
     echo "Cài đặt tooling phiên bản $VER hoàn tất (⚠️ hooks chưa được merge — xem cảnh báo ở trên)." >&2
   fi
 fi
-echo "Khởi động lại phiên làm việc AI để áp dụng thay đổi."
 
-# Exit 1 nếu merge thất bại — caller biết cần kiểm tra
+# Exit 1 nếu merge thất bại — caller biết cần kiểm tra. Chỉ prune sau khi cài
+# và merge hooks thành công để tránh dọn file cũ trong một lần install dang dở.
 [ "$MERGE_OK" = "1" ] || exit 1
+
+prune_stale_managed_paths
+write_tooling_manifest
+
+echo "Khởi động lại phiên làm việc AI để áp dụng thay đổi."
