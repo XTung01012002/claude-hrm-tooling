@@ -26,11 +26,11 @@ CONSUMED_SNAPSHOTS=()
 
 cleanup_consumed_snapshots() {
   local f
-  if [ ${#CONSUMED_SNAPSHOTS[@]} -gt 0 ]; then
-    for f in "${CONSUMED_SNAPSHOTS[@]}"; do
-      rm -f -- "$f" 2>/dev/null || true
-    done
-  fi
+  set +u
+  for f in "${CONSUMED_SNAPSHOTS[@]}"; do
+    rm -f -- "$f" 2>/dev/null || true
+  done
+  set -u
 }
 
 verification_succeeded() {
