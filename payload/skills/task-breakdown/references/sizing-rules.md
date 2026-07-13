@@ -34,11 +34,13 @@ Effort đánh theo độ khó thực tế, rủi ro và edge case.
 - Có race condition/idempotency/concurrency
 
 ### Giảm effort nếu có:
-- Đã có code mẫu gần giống
-- Chỉ gọi lại hàm có sẵn
-- Copy-paste và sửa nhẹ
+- Có pattern đã verify và có thể áp dụng trực tiếp
+- Chỉ gọi lại interface/helper/repository có sẵn
+- Có template gần giống nhưng không sao chép business logic
 - Task tương tự đã làm nhiều lần
 - Không có business logic mới
+
+Không giảm effort chỉ vì có thể copy-paste. Nếu phải nhân bản logic thay vì reuse, tính thêm rủi ro maintainability hoặc đề xuất tách shared logic theo `docs/ai/PROJECT-CONVENTIONS.md` §1.
 
 ## 3. Ma Trận Point
 |                | **Easy (E)** | **Medium (M)** | **Hard (H)** |

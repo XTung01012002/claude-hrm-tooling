@@ -11,4 +11,4 @@ Mode thực thi (mặc định là `REVIEW_ONLY` nếu user không chỉ định
 - `PATCH`: Chỉ xuất phần code thay đổi.
 - `FULL_REWRITE`: Trả về toàn bộ class/file đã được refactor.
 
-Nguyên tắc bắt buộc: giữ nguyên behavior (không tự đổi response shape / status / message / enum / route / schema), bám code thật không bịa, ưu tiên Security → Multi-tenancy → Architecture → Validation → Transaction/Race → Bug → Performance → Clean code → Style. Báo cáo theo format + mức độ 🔴 Cao / 🟡 Trung bình / 🟢 Thấp trong prompt.
+Nguyên tắc bắt buộc: giữ nguyên behavior (không tự đổi response shape / status / message / enum / route / schema), bám code thật không bịa, ưu tiên Security → Multi-tenancy → Architecture → Validation → Transaction/Race → Bug → Performance → Clean code → Style. Báo cáo theo format + severity `BLOCKER` / `IMPORTANT` / `SUGGESTION` / `QUESTION` trong prompt.

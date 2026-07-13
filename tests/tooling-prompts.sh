@@ -143,6 +143,7 @@ test_diff_review_uses_review_verdict_rules() {
   ! grep -q 'REQUEST CHANGES' "$file" || return 1
   grep -q 'PASS_WITH_CONCERNS' "$file" || return 1
   grep -q 'REQUEST_CHANGES' "$file" || return 1
+  grep -q 'BLOCKED_INSUFFICIENT_CONTEXT' "$file" || return 1
   grep -q 'review.md' "$file" || return 1
   grep -q 'Merge blocking: Yes' "$file" || return 1
 }
@@ -152,6 +153,7 @@ test_diff_review_workflow_preserves_merge_blocking_gate() {
 
   ! grep -q 'Không sinh commit khi có Blocker' "$file" || return 1
   grep -q 'PASS_WITH_CONCERNS' "$file" || return 1
+  grep -q 'BLOCKED_INSUFFICIENT_CONTEXT' "$file" || return 1
   grep -q 'Merge blocking: Yes' "$file" || return 1
 }
 
@@ -162,6 +164,78 @@ test_implement_quality_gate_requires_all_changed_files() {
   grep -qi 'mọi PHP file' "$file" || return 1
   grep -qi 'mọi test' "$file" || return 1
   grep -q 'exit code `0`' "$file" || return 1
+}
+
+test_review_prompts_use_shared_contract() {
+  local file
+
+  for file in \
+    "$ROOT/payload/CLAUDE.md" \
+    "$ROOT/payload/docs/ai/prompts/review.md" \
+    "$ROOT/payload/docs/ai/prompts/review-vs-plan.md" \
+    "$ROOT/payload/docs/ai/prompts/refactor.md" \
+    "$ROOT/payload/.claude/commands/refactor.md"; do
+    ! grep -Eq 'PASS/FAIL|Thấp / Cần xác nhận|🔴 Cao|🟡 Trung bình|🔵 Gợi ý|❌ Không đạt' "$file" || {
+      printf '%s: legacy severity/verdict wording found\n' "$file" >&2
+      return 1
+    }
+  done
+
+  grep -q 'review-contract.md' "$ROOT/payload/docs/ai/prompts/review.md" || return 1
+  grep -q 'review-contract.md' "$ROOT/payload/docs/ai/prompts/review-vs-plan.md" || return 1
+  grep -q 'review-contract.md' "$ROOT/payload/docs/ai/prompts/refactor.md" || return 1
+  grep -q 'PASS_WITH_CONCERNS' "$ROOT/payload/CLAUDE.md" || return 1
+  grep -q 'BLOCKED_INSUFFICIENT_CONTEXT' "$ROOT/payload/CLAUDE.md" || return 1
+}
+
+test_implement_requires_baseline_and_final_audit() {
+  local file="$ROOT/payload/docs/ai/prompts/implement-requirement.md"
+
+  grep -q 'Bước 0 — Workspace baseline' "$file" || return 1
+  grep -q 'git status --short' "$file" || return 1
+  grep -q 'Sửa/tạo code theo loại task' "$file" || return 1
+  grep -q 'Final diff audit' "$file" || return 1
+  grep -q 'Workspace audit' "$file" || return 1
+  ! grep -q 'Theo khuôn feature §3: Command/Query + Handler + ValidationInterface' "$file" || return 1
+}
+
+test_all_skills_live_under_payload_skills() {
+  [ -f "$ROOT/payload/skills/task-breakdown/SKILL.md" ] || return 1
+  [ -f "$ROOT/payload/skills/find-reuse-candidates/SKILL.md" ] || return 1
+  [ ! -e "$ROOT/payload/.claude/skills/find-reuse-candidates/SKILL.md" ] || return 1
+}
+
+test_task_sizing_does_not_reward_copy_paste() {
+  local file="$ROOT/payload/skills/task-breakdown/references/sizing-rules.md"
+
+  ! grep -q 'Copy-paste và sửa nhẹ' "$file" || return 1
+  grep -q 'Có template gần giống nhưng không sao chép business logic' "$file" || return 1
+  grep -q 'Không giảm effort chỉ vì có thể copy-paste' "$file" || return 1
+}
+
+test_scaffold_feature_quality_gate_checks_all_files() {
+  local file="$ROOT/payload/docs/ai/prompts/generate-feature.md"
+
+  grep -q 'toàn bộ PHP file vừa tạo' "$file" || return 1
+  grep -q 'ai-check' "$file" || return 1
+  grep -q 'ai-pint' "$file" || return 1
+}
+
+test_api_docs_trace_uses_boundaries() {
+  local file="$ROOT/payload/docs/ai/prompts/generate-api-docs.md"
+
+  ! grep -q 'tối đa \*\*2 tầng lời gọi tính từ Handler' "$file" || return 1
+  grep -q 'boundary rõ ràng' "$file" || return 1
+  grep -q 'lỗi sâu hơn chưa được verify' "$file" || return 1
+}
+
+test_code_docs_examples_are_domain_neutral() {
+  local file="$ROOT/payload/docs/ai/prompts/generate-code-docs.md"
+
+  ! grep -q 'NONE → REQUEST_SENT' "$file" || return 1
+  ! grep -q 'Zalo API 500' "$file" || return 1
+  grep -q 'STATE_A → STATE_B → STATE_C' "$file" || return 1
+  grep -q 'External API error' "$file" || return 1
 }
 
 run_test "frontmatter descriptions are YAML-safe" test_frontmatter_descriptions_are_yaml_safe
@@ -175,6 +249,13 @@ run_test "generate-test Profile B has explicit scope" test_generate_test_profile
 run_test "diff-review uses review verdict rules" test_diff_review_uses_review_verdict_rules
 run_test "diff-review workflow preserves merge gate" test_diff_review_workflow_preserves_merge_blocking_gate
 run_test "implement quality gate checks all changed files" test_implement_quality_gate_requires_all_changed_files
+run_test "review prompts use shared contract" test_review_prompts_use_shared_contract
+run_test "implement requires baseline and final audit" test_implement_requires_baseline_and_final_audit
+run_test "skills live under payload/skills" test_all_skills_live_under_payload_skills
+run_test "task sizing does not reward copy-paste" test_task_sizing_does_not_reward_copy_paste
+run_test "scaffold-feature checks all generated files" test_scaffold_feature_quality_gate_checks_all_files
+run_test "api-docs trace uses boundaries" test_api_docs_trace_uses_boundaries
+run_test "code-docs examples are domain-neutral" test_code_docs_examples_are_domain_neutral
 
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s test(s) failed\n' "$FAILURES" >&2

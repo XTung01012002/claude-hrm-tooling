@@ -5,7 +5,7 @@
 > **Đọc trước:** `docs/ai/PROJECT-CONVENTIONS.md` (đặc biệt §0 cấm bịa, §1 reuse, §2 layering, §3 khuôn feature, §11 giữ behavior).
 
 ## Nhiệm vụ
-Triển khai yêu cầu theo quy trình 10 bước.
+Triển khai yêu cầu theo workspace baseline + quy trình 10 bước.
 
 ## Mode thực thi
 
@@ -39,6 +39,18 @@ Triển khai yêu cầu theo quy trình 10 bước.
 ```
 
 Ở đầu output, nêu rõ: `Mode: AUTO` hoặc `Mode: STRICT (escalated — lý do: ...)`.
+
+---
+
+## Bước 0 — Workspace baseline
+
+Trước khi đọc/sửa code:
+
+- Chạy `git status --short`.
+- Ghi nhận tracked/untracked changes đã tồn tại trước phiên làm việc.
+- Không reset, checkout, restore, clean, stash hoặc thay đổi staging state.
+- Không sửa file ngoài phạm vi yêu cầu, kể cả khi phát hiện vấn đề.
+- Nếu cần sửa file đang có thay đổi sẵn, đọc kỹ diff hiện tại và nêu rõ cách sẽ tránh ghi đè thay đổi của user.
 
 ---
 
@@ -132,10 +144,11 @@ Nếu có giả định cần xác nhận (bước 5) làm đổi behavior/schem
 
 ## GIAI ĐOẠN 2 — TRIỂN KHAI (bước 8–10, sau khi user đồng ý)
 
-### Bước 8: Sửa/tạo code
-- Theo khuôn feature §3: Command/Query + Handler + ValidationInterface.
-- `declare(strict_types=1)`, `readonly class`, inject interface, `validate()` đầu tiên.
-- `BusinessException(<message tiếng Việt>, <httpCode>)` cho lỗi nghiệp vụ.
+### Bước 8: Sửa/tạo code theo loại task
+- **Tạo Core use case mới:** áp dụng khuôn feature §3: Command/Query + Handler + ValidationInterface; `declare(strict_types=1)`, `readonly class`, inject interface, `validate()` đầu tiên; `BusinessException(<message tiếng Việt>, <httpCode>)` cho lỗi nghiệp vụ.
+- **Sửa use case hiện có:** giữ cấu trúc hiện tại, chỉ tạo thành phần mới khi code thật chứng minh cần thiết.
+- **Sửa Repository/Job/Listener/Mapper/Controller/Helper:** tuân thủ pattern của loại component đó; không ép khuôn feature ba file.
+- **Refactor hoặc bug fix nhỏ:** ưu tiên patch nhỏ nhất giữ nguyên public behavior (§11).
 - Reuse interface/repo có sẵn (bước 1), KHÔNG tạo mới nếu đã có.
 
 ### Bước 9: Viết/chỉnh test
@@ -166,6 +179,15 @@ AI_TEST=tests/Unit/YTest.php make -f Makefile.ai ai-test
 
 **Bắt buộc** chạy lint và Pint cho mọi PHP file mới/sửa, rồi chạy mọi test mới/sửa và test liên quan. Chỉ ghi `✅` khi mọi command đã chạy thật với exit code `0`; nếu bỏ qua file/test nào, báo rõ lý do. Nếu fail → sửa → chạy lại.
 
+### Bước 10.5: Final diff audit
+
+- Đọc lại `git diff` và toàn bộ file untracked mới tạo.
+- Đối chiếu từng file với Acceptance Criteria và bảng Files dự kiến.
+- Xác nhận không có scope creep.
+- Xác nhận không ghi đè hoặc nhận công thay đổi đã tồn tại trước phiên làm việc.
+- Kiểm tra Pint/format không làm thay đổi ngoài phạm vi.
+- Chỉ đánh dấu AC hoàn thành sau audit này.
+
 ---
 
 ## Format xuất kết quả cuối
@@ -187,6 +209,11 @@ AI_TEST=tests/Unit/YTest.php make -f Makefile.ai ai-test
 - Lint: ✅ / ❌
 - Pint: ✅ / ❌
 - Test: ✅ / ❌ (<n> passed, <m> failed)
+
+## Workspace audit
+- Baseline đã ghi nhận: ✅ / ❌
+- Final diff audit: ✅ / ❌
+- Scope creep: Không / Có (<mô tả>)
 
 ## Lưu ý
 - <behavior giữ nguyên>

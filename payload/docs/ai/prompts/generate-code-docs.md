@@ -87,9 +87,9 @@ Controller → Command/Query → ValidationInterface → Handler → Repository
 <Nếu có state transition — vẽ diagram hoặc liệt kê>
 
 ```
-NONE → REQUEST_SENT → FRIEND
-NONE → REQUEST_RECEIVED → FRIEND
-                        → REJECTED
+STATE_A → STATE_B → STATE_C
+STATE_A → STATE_D → STATE_C
+                 → STATE_E
 ```
 
 > Bỏ mục này nếu feature không có state machine.
@@ -97,8 +97,8 @@ NONE → REQUEST_RECEIVED → FRIEND
 ## Failure & Retry Behavior
 | Lỗi | Hành vi | Retry? |
 |---|---|---|
-| Zalo API 500 | Ném BusinessException | Không (user retry) |
-| Record not found | Ném 404 | Không |
+| External API error | <hành vi thật từ code> | <Có/Không + lý do> |
+| Domain exception | <message/status thật từ code> | <Có/Không + lý do> |
 | ... | ... | ... |
 
 ## Những điều KHÔNG nên thay đổi
@@ -109,10 +109,10 @@ NONE → REQUEST_RECEIVED → FRIEND
 
 ## Ví dụ sử dụng
 ```php
-// Gọi từ Controller
-$command = XCommand::fromRequest($request);
-$result = $this->handler->handle($command);
-return $this->jsonResponse($result, 'Thành công');
+// Ví dụ gọi từ boundary thật của feature
+$input = InputDto::fromRequest($request);
+$result = $this->handler->handle($input);
+return $this->jsonResponse($result, '<message thật>');
 ```
 
 ## Liên kết
