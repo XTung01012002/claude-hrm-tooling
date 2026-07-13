@@ -26,6 +26,14 @@ case "$FILE_PATH" in
   *) exit 0 ;;
 esac
 
+# Reject path traversal attempts
+case "/$FILE_PATH/" in
+  */../* | */./*)
+    printf '[record-touched-file] ⚠️ Path traversal detected, rejected.\n' >&2
+    exit 1
+    ;;
+esac
+
 # Convert to absolute path
 case "$FILE_PATH" in
   /*) ABS="$FILE_PATH" ;;

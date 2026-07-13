@@ -23,6 +23,24 @@ container_up() {
   ( cd "$REPO_ROOT/docker/local" 2>/dev/null && docker compose exec -T hrm-api true >/dev/null 2>&1 )
 }
 
+# --- Normalize path: absolute → relative to REPO_ROOT ---
+normalize_to_rel() {
+  local f="$1"
+  case "$f" in
+    "$REPO_ROOT"/*) printf '%s' "${f#$REPO_ROOT/}" ;;
+    /*) return ;;  # absolute ngoài repo — reject (không in gì)
+    *) printf '%s' "$f" ;;
+  esac
+}
+
+file_exists() {
+  local f="$1"
+  case "$f" in
+    /*) return 1 ;;  # reject absolute path — phải normalize trước
+    *)  [ -f "$REPO_ROOT/$f" ] ;;
+  esac
+}
+
 # --- Thu thập file cần xử lý và ghi nhận ---
 
 # Ưu tiên 1: lấy file từ payload hook (thử nhiều field names khác nhau)
@@ -71,23 +89,7 @@ if ! container_up; then
   exit 0
 fi
 
-# --- Normalize path: absolute → relative to REPO_ROOT ---
-normalize_to_rel() {
-  local f="$1"
-  case "$f" in
-    "$REPO_ROOT"/*) printf '%s' "${f#$REPO_ROOT/}" ;;
-    /*) return ;;  # absolute ngoài repo — reject (không in gì)
-    *) printf '%s' "$f" ;;
-  esac
-}
 
-file_exists() {
-  local f="$1"
-  case "$f" in
-    /*) return 1 ;;  # reject absolute path — phải normalize trước
-    *)  [ -f "$REPO_ROOT/$f" ] ;;
-  esac
-}
 
 # --- Lint & Format ---
 

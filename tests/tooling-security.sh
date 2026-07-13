@@ -742,7 +742,7 @@ run_test "install rejects overwriting tracked files" test_install_rejects_overwr
 run_test "install allows overwriting tracked files with force" test_install_allows_overwriting_tracked_files_with_force
 run_test "guard warns when jq is missing" test_guard_warns_when_jq_is_missing
 
-test_strict_failure_remains_blocked_on_second_stop() {
+test_strict_missing_makefile_remains_blocked() {
   local project="$TMP_DIR/strict-double-stop-project"
   local status1 status2
 
@@ -755,21 +755,26 @@ test_strict_failure_remains_blocked_on_second_stop() {
   printf '<?php echo "fail"; exit(1);\n' > "$project/source/tests/Unit/FooTest.php"
   chmod +x "$project/source/tests/Unit/FooTest.php"
   
-  # Mock vendor/bin/phpunit
-  mkdir -p "$project/source/vendor/bin"
+  # Mock vendor/bin/phpunit and docker
+  mkdir -p "$project/source/vendor/bin" "$project/bin"
   cat << 'MOCK' > "$project/source/vendor/bin/phpunit"
 #!/usr/bin/env bash
 exit 1
 MOCK
-  chmod +x "$project/source/vendor/bin/phpunit"
+  cat << 'DOCKER_MOCK' > "$project/bin/docker"
+#!/usr/bin/env bash
+exit 0
+DOCKER_MOCK
+  chmod +x "$project/source/vendor/bin/phpunit" "$project/bin/docker"
 
-  mkdir -p "$project/.claude/tmp"
+  mkdir -p "$project/.claude/tmp" "$project/docker/local"
   printf 'source/src/Foo.php\n' > "$project/.claude/tmp/touched-files"
 
   # First stop
   set +e
   (
     cd "$project"
+    export PATH="$project/bin:$PATH"
     AI_TEST_MODE=strict .claude/hooks/run-related-tests.sh <<< '{}'
   ) >"$OUT" 2>&1
   status1=$?
@@ -781,12 +786,116 @@ MOCK
   set +e
   (
     cd "$project"
+    export PATH="$project/bin:$PATH"
     AI_TEST_MODE=strict .claude/hooks/run-related-tests.sh <<< '{}'
   ) >"$OUT" 2>&1
   status2=$?
   set -e
   
   [ "$status2" -eq 2 ] || return 1
+}
+
+test_strict_failed_test_remains_blocked() {
+  local project="$TMP_DIR/strict-failed-test-project"
+  local status1 status2
+
+  mkdir -p "$project/.claude/hooks" "$project/source/src" "$project/source/tests/Unit"
+  cp "$ROOT/payload/.claude/hooks/run-related-tests.sh" "$project/.claude/hooks/run-related-tests.sh"
+  chmod +x "$project/.claude/hooks/run-related-tests.sh"
+  git -C "$project" init -q
+  touch "$project/Makefile.ai"
+
+  printf '<?php\n' > "$project/source/src/Foo.php"
+  printf '<?php echo "fail"; exit(1);\n' > "$project/source/tests/Unit/FooTest.php"
+  chmod +x "$project/source/tests/Unit/FooTest.php"
+  
+  cat << 'MOCK' > "$project/Makefile.ai"
+ai-test:
+	exit 1
+MOCK
+
+  # Mock docker
+  mkdir -p "$project/bin"
+  cat << 'DOCKER_MOCK' > "$project/bin/docker"
+#!/usr/bin/env bash
+exit 0
+DOCKER_MOCK
+  chmod +x "$project/bin/docker"
+
+  mkdir -p "$project/.claude/tmp" "$project/docker/local"
+  printf 'source/src/Foo.php\n' > "$project/.claude/tmp/touched-files"
+
+  # First stop
+  set +e
+  (
+    cd "$project"
+    export PATH="$project/bin:$PATH"
+    AI_TEST_MODE=strict .claude/hooks/run-related-tests.sh <<< '{}'
+  ) >"$OUT" 2>&1
+  status1=$?
+  set -e
+  
+  [ "$status1" -eq 2 ] || return 1
+
+  # Second stop
+  set +e
+  (
+    cd "$project"
+    export PATH="$project/bin:$PATH"
+    AI_TEST_MODE=strict .claude/hooks/run-related-tests.sh <<< '{}'
+  ) >"$OUT" 2>&1
+  status2=$?
+  set -e
+  
+  [ "$status2" -eq 2 ] || return 1
+}
+
+test_success_clears_old_processing_snapshot() {
+  local project="$TMP_DIR/strict-success-project"
+  local status1
+
+  mkdir -p "$project/.claude/hooks" "$project/source/src" "$project/source/tests/Unit"
+  cp "$ROOT/payload/.claude/hooks/run-related-tests.sh" "$project/.claude/hooks/run-related-tests.sh"
+  chmod +x "$project/.claude/hooks/run-related-tests.sh"
+  git -C "$project" init -q
+  touch "$project/Makefile.ai"
+
+  printf '<?php\n' > "$project/source/src/Foo.php"
+  printf '<?php echo "pass"; exit(0);\n' > "$project/source/tests/Unit/FooTest.php"
+  chmod +x "$project/source/tests/Unit/FooTest.php"
+  
+  cat << 'MOCK' > "$project/Makefile.ai"
+ai-test:
+	exit 0
+MOCK
+
+  # Mock docker
+  mkdir -p "$project/bin"
+  cat << 'DOCKER_MOCK' > "$project/bin/docker"
+#!/usr/bin/env bash
+exit 0
+DOCKER_MOCK
+  chmod +x "$project/bin/docker"
+
+  mkdir -p "$project/.claude/tmp" "$project/docker/local"
+  printf 'source/src/Foo.php\n' > "$project/.claude/tmp/touched-files"
+
+  # Run stop
+  set +e
+  (
+    cd "$project"
+    export PATH="$project/bin:$PATH"
+    AI_TEST_MODE=strict .claude/hooks/run-related-tests.sh <<< '{}'
+  ) >"$OUT" 2>&1
+  status1=$?
+  set -e
+  
+  [ "$status1" -eq 0 ] || return 1
+
+  # Ensure snapshot is deleted
+  local count
+  count=$(find "$project/.claude/tmp" -name "touched-files.processing.*" | wc -l)
+  [ "$count" -eq 0 ]
 }
 
 test_record_touched_rejects_path_outside_repo() {
@@ -803,6 +912,20 @@ test_record_touched_rejects_path_outside_repo() {
   [ "$status" -eq 1 ] && grep -q "outside repository" "$OUT"
 }
 
+test_record_touched_rejects_dotdot_escape() {
+  local project="$TMP_DIR/record-touched-project-dotdot"
+  mkdir -p "$project/.claude/scripts"
+  cp "$ROOT/payload/.claude/scripts/record-touched-file.sh" "$project/.claude/scripts/record-touched-file.sh"
+  chmod +x "$project/.claude/scripts/record-touched-file.sh"
+
+  set +e
+  "$project/.claude/scripts/record-touched-file.sh" "$project" "source/../../tmp/outside.php" >"$OUT" 2>&1
+  local status=$?
+  set -e
+  
+  [ "$status" -eq 1 ] && grep -q "Path traversal detected" "$OUT"
+}
+
 test_tracked_conflict_leaves_target_unchanged() {
   local project="$TMP_DIR/tracked-conflict-project"
   mkdir -p "$project/source" "$project/docker/local"
@@ -815,7 +938,7 @@ test_tracked_conflict_leaves_target_unchanged() {
   
   # Hash before install
   local hash_before
-  hash_before=$(find "$project" -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum)
+  hash_before=$(find "$project" -type f -print0 | sort -z | xargs -0 shasum -a 256 | shasum -a 256)
 
   set +e
   "$ROOT/install.sh" "$project" >"$OUT" 2>&1
@@ -826,7 +949,7 @@ test_tracked_conflict_leaves_target_unchanged() {
   
   # Hash after install
   local hash_after
-  hash_after=$(find "$project" -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum)
+  hash_after=$(find "$project" -type f -print0 | sort -z | xargs -0 shasum -a 256 | shasum -a 256)
   
   [ "$hash_before" = "$hash_after" ]
 }
@@ -849,10 +972,69 @@ test_installer_rejects_symlinked_managed_directory() {
   [ "$status" -eq 1 ] && grep -q "symlink escape" "$OUT"
 }
 
-run_test "strict test hook blocked on second stop" test_strict_failure_remains_blocked_on_second_stop
+test_installer_rejects_symlinked_agents_parent() {
+  local project="$TMP_DIR/symlink-agents-project"
+  mkdir -p "$project/source" "$project/docker/local"
+  printf '{}' > "$project/source/composer.json"
+  
+  local outside="$TMP_DIR/outside-agents-dir"
+  mkdir -p "$outside"
+  ln -s "$outside" "$project/.agents"
+
+  set +e
+  "$ROOT/install.sh" "$project" >"$OUT" 2>&1
+  local status=$?
+  set -e
+  
+  [ "$status" -eq 1 ] && grep -q "symlink escape" "$OUT"
+}
+
+test_format_dirty_records_exact_payload_file() {
+  local project="$TMP_DIR/format-dirty-project"
+  mkdir -p "$project/.claude/hooks" "$project/.claude/scripts" "$project/.claude/tmp" "$project/source/src"
+  cp "$ROOT/payload/.claude/hooks/format-dirty.sh" "$project/.claude/hooks/format-dirty.sh"
+  cp "$ROOT/payload/.claude/scripts/record-touched-file.sh" "$project/.claude/scripts/record-touched-file.sh"
+  chmod +x "$project/.claude/hooks/format-dirty.sh" "$project/.claude/scripts/record-touched-file.sh"
+  
+  touch "$project/source/src/Foo.php"
+  
+  set +e
+  (
+    cd "$project"
+    jq -n '{"tool_input": {"file_path": "source/src/Foo.php"}}' | .claude/hooks/format-dirty.sh
+  ) >"$OUT" 2>&1
+  local status=$?
+  set -e
+  
+  [ "$status" -eq 0 ] || return 1
+  grep -q "source/src/Foo.php" "$project/.claude/tmp/touched-files"
+}
+
+test_installer_keeps_correct_skill_alias() {
+  local project="$TMP_DIR/installer-skill-alias"
+  mkdir -p "$project/source" "$project/docker/local" "$project/.agents"
+  printf '{}' > "$project/source/composer.json"
+  ln -s "../skills" "$project/.agents/skills"
+  
+  set +e
+  "$ROOT/install.sh" "$project" >"$OUT" 2>&1
+  local status=$?
+  set -e
+  
+  [ "$status" -eq 0 ] || return 1
+  [ "$(readlink "$project/.agents/skills")" = "../skills" ]
+}
+
+run_test "strict test hook blocked without Makefile" test_strict_missing_makefile_remains_blocked
+run_test "strict test hook blocked on failed test" test_strict_failed_test_remains_blocked
+run_test "strict test hook success clears processing snapshot" test_success_clears_old_processing_snapshot
+run_test "record touched rejects path with dotdot" test_record_touched_rejects_dotdot_escape
 run_test "record touched rejects outside repo" test_record_touched_rejects_path_outside_repo
 run_test "tracked conflict leaves target unchanged" test_tracked_conflict_leaves_target_unchanged
 run_test "installer rejects symlinked managed directory" test_installer_rejects_symlinked_managed_directory
+run_test "installer rejects symlinked agents parent" test_installer_rejects_symlinked_agents_parent
+run_test "format dirty hook records exact payload file" test_format_dirty_records_exact_payload_file
+run_test "installer keeps correct skill alias" test_installer_keeps_correct_skill_alias
 
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s test(s) failed\n' "$FAILURES" >&2

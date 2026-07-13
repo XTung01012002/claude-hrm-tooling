@@ -131,6 +131,56 @@ for rel in "${FILES_TO_INSTALL[@]}"; do
   fi
 done
 
+ALIAS_PATHS=(
+  ".agents"
+  ".agents/skills"
+  ".claude"
+  ".claude/skills"
+)
+
+check_parent_symlink_escape() {
+  local path="$1"
+  local current=""
+  IFS='/' read -ra PARTS <<< "$path"
+  local max=$(( ${#PARTS[@]} - 1 ))
+  for ((i=0; i<max; i++)); do
+    local part="${PARTS[i]}"
+    [ -z "$part" ] && continue
+    current="$current/$part"
+    if [ -L "$current" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+for rel in "${ALIAS_PATHS[@]}"; do
+  if check_parent_symlink_escape "$TARGET/$rel"; then
+    echo "❌ CẢNH BÁO: Phát hiện symlink trong thư mục cha của alias đích (nguy cơ path traversal): $rel" >&2
+    SYMLINK_ESCAPES=$((SYMLINK_ESCAPES + 1))
+  fi
+done
+
+for alias_dir in ".agents" ".claude"; do
+  alias_path="$alias_dir/skills"
+  dest="$TARGET/$alias_path"
+  if [ -L "$dest" ]; then
+    if [ "$(readlink "$dest")" != "../skills" ] && [ "$FORCE_OVERWRITE_TRACKED" != "1" ]; then
+      echo "❌ CẢNH BÁO: Alias $alias_path trỏ sai đích. Dùng --force-overwrite-tracked để sửa." >&2
+      TRACKED_CONFLICTS=$((TRACKED_CONFLICTS + 1))
+    fi
+  elif [ -d "$dest" ]; then
+    if ! diff -q -r "$SRC/skills" "$dest" >/dev/null 2>&1 && [ "$FORCE_OVERWRITE_TRACKED" != "1" ]; then
+      echo "❌ CẢNH BÁO: Thư mục $alias_path chứa thay đổi so với bản gốc. Dùng --force-overwrite-tracked để thay bằng symlink." >&2
+      TRACKED_CONFLICTS=$((TRACKED_CONFLICTS + 1))
+    fi
+  elif [ -e "$dest" ] && [ "$FORCE_OVERWRITE_TRACKED" != "1" ]; then
+    echo "❌ CẢNH BÁO: $alias_path không phải là thư mục hay symlink hợp lệ." >&2
+    TRACKED_CONFLICTS=$((TRACKED_CONFLICTS + 1))
+  fi
+done
+
+
 if [ "$SYMLINK_ESCAPES" -gt 0 ]; then
   echo "❌ Cài đặt bị hủy vì phát hiện $SYMLINK_ESCAPES đường dẫn có nguy cơ symlink escape." >&2
   exit 1
@@ -159,13 +209,30 @@ for rel in "${FILES_TO_INSTALL[@]}"; do
 done
 
 # Tạo symlink tự động cho aliases
-for alias_dir in ".agents" ".claude"; do
-  if [ ! -L "$TARGET/$alias_dir/skills" ] && [ ! -d "$TARGET/$alias_dir/skills" ]; then
-    mkdir -p "$TARGET/$alias_dir"
-    ln -s "../skills" "$TARGET/$alias_dir/skills"
-    echo "  + Tạo symlink $alias_dir/skills -> ../skills"
+ensure_skill_alias() {
+  local alias_path="$1"
+  local dest="$TARGET/$alias_path"
+  local target_dir="$(dirname "$dest")"
+  
+  if [ -L "$dest" ]; then
+    if [ "$(readlink "$dest")" = "../skills" ]; then
+      return 0
+    else
+      rm -f "$dest"
+    fi
+  elif [ -e "$dest" ]; then
+    local stamp="$(date +%Y%m%d-%H%M%S).$$"
+    mv "$dest" "$dest.bak.$stamp"
+    echo "  ! Đã sao lưu alias cũ thành $alias_path.bak.$stamp"
   fi
-done
+  
+  mkdir -p "$target_dir"
+  ln -s "../skills" "$dest"
+  echo "  + Tạo symlink $alias_path -> ../skills"
+}
+
+ensure_skill_alias ".agents/skills"
+ensure_skill_alias ".claude/skills"
 
 chmod +x "$TARGET/.claude/hooks/"*.sh 2>/dev/null || true
 chmod +x "$TARGET/.claude/scripts/"*.sh 2>/dev/null || true

@@ -22,9 +22,17 @@ case "$TEST_MODE" in
 esac
 
 SNAPSHOT_FILE=""
+CONSUMED_SNAPSHOTS=()
+
+cleanup_consumed_snapshots() {
+  local f
+  for f in "${CONSUMED_SNAPSHOTS[@]}"; do
+    rm -f -- "$f" 2>/dev/null || true
+  done
+}
 
 verification_succeeded() {
-  [ -n "${SNAPSHOT_FILE:-}" ] && rm -f "$SNAPSHOT_FILE" 2>/dev/null
+  cleanup_consumed_snapshots
   exit 0
 }
 
@@ -33,7 +41,7 @@ verification_failed() {
 }
 
 advisory_completed() {
-  [ -n "${SNAPSHOT_FILE:-}" ] && rm -f "$SNAPSHOT_FILE" 2>/dev/null
+  cleanup_consumed_snapshots
   exit 0
 }
 
@@ -113,6 +121,10 @@ collect_changed_once() {
   for f in "$TOUCHED_FILES" "$TOUCHED_FILES.processing."*; do
     if [ -s "$f" ]; then
       cat "$f" >> "$CHANGED_FILES_TMP"
+      # Chỉ đưa processing snapshots vào danh sách dọn dẹp
+      case "$f" in
+        *.processing.*) CONSUMED_SNAPSHOTS+=("$f") ;;
+      esac
       has_snapshot=1
     fi
   done
