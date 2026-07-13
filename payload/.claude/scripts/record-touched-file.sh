@@ -80,18 +80,27 @@ case "$REL" in
   *) exit 10 ;; # Silently ignore files outside source/ (e.g. scripts)
 esac
 
+. "$REPO_ROOT/.claude/scripts/validate-tooling-tmp.sh" || exit 2
+
 MANIFEST_DIR="$REPO_ROOT/.claude/tmp"
 MANIFEST_FILE="$MANIFEST_DIR/touched-files"
 
-mkdir -p "$MANIFEST_DIR" 2>/dev/null || {
-  printf '[record-touched-file] ⚠️ Cannot create %s\n' "$MANIFEST_DIR" >&2
-  exit 1
-}
+if [ -L "$MANIFEST_FILE" ]; then
+    printf '[record-touched-file] Manifest must not be a symlink.\n' >&2
+    exit 2
+fi
+
+if [ -e "$MANIFEST_FILE" ] && [ ! -f "$MANIFEST_FILE" ]; then
+    printf '[record-touched-file] Manifest is not a regular file.\n' >&2
+    exit 2
+fi
 
 # Append directly; we deduplicate when reading
 if ! printf '%s\n' "$REL" >> "$MANIFEST_FILE"; then
   printf '[record-touched-file] ⚠️ Failed to write to manifest.\n' >&2
-  exit 1
+  exit 2
 fi
+
+chmod 600 "$MANIFEST_FILE" 2>/dev/null || true
 
 exit 0

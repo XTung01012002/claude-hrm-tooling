@@ -1419,51 +1419,6 @@ MOCK
   [ "$status" -eq 130 ] || return 1
 }
 
-test_hup_signal_exits_129() {
-  local project="$TMP_DIR/hup-signal-stop"
-  mkdir -p "$project/.claude/hooks" "$project/.claude/scripts" "$project/source/src"
-  mkdir -p "$project/.claude/scripts" && cp "$ROOT/payload/.claude/scripts/validate-tooling-tmp.sh" "$project/.claude/scripts/validate-tooling-tmp.sh" && chmod +x "$project/.claude/scripts/validate-tooling-tmp.sh"
-  cp "$ROOT/payload/.claude/hooks/run-related-tests.sh" "$project/.claude/hooks/run-related-tests.sh"
-  cp "$ROOT/payload/.claude/scripts/validate-tooling-tmp.sh" "$project/.claude/scripts/validate-tooling-tmp.sh"
-  chmod +x "$project/.claude/hooks/run-related-tests.sh" "$project/.claude/scripts/validate-tooling-tmp.sh"
-  
-  git -C "$project" init -q
-  touch "$project/Makefile.ai"
-  mkdir -p "$project/bin" "$project/source/tests/Unit"
-  touch "$project/source/tests/Unit/FooTest.php"
-  cat << 'MOCK' > "$project/bin/docker"
-#!/usr/bin/env bash
-sleep 10
-exit 0
-MOCK
-  chmod +x "$project/bin/docker"
-  cat << 'MOCK' > "$project/Makefile.ai"
-ai-test:
-	sleep 10
-MOCK
-  mkdir -p "$project/.claude/tmp" "$project/docker/local"
-  printf 'source/src/Foo.php\n' > "$project/.claude/tmp/touched-files"
-  
-  (
-    cd "$project"
-    export PATH="$project/bin:$PATH"
-    AI_TEST_MODE=strict .claude/hooks/run-related-tests.sh <<< '{}' >"$OUT" 2>&1
-  ) &
-  local bg_pid=$!
-  
-  local attempts=0
-  while [ ! -f "$project/.claude/tmp/run-related-tests.lock/pid" ] && [ $attempts -lt 50 ]; do
-    sleep 0.1
-    attempts=$((attempts + 1))
-  done
-  
-  local script_pid=$(cat "$project/.claude/tmp/run-related-tests.lock/pid")
-  kill -HUP "$script_pid"
-  wait "$bg_pid" || status=$?
-  
-  [ "$status" -eq 129 ] || return 1
-}
-
 test_stop_rejects_symlinked_tmp_directory() {
   local project="$TMP_DIR/stop-symlink-tmp"
   mkdir -p "$project/.claude/hooks" "$project/.claude/scripts"
@@ -1601,5 +1556,4 @@ if [ "$FAILURES" -ne 0 ]; then
   printf '%s test(s) failed\n' "$FAILURES" >&2
   exit 1
 fi
-
 

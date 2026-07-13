@@ -46,17 +46,20 @@ Mặc định đặt test tại `source/tests/Unit/<ClassName>Test.php`, theo co
 
 Trước khi duyệt matrix, **chọn profile phù hợp** để không tốn token cho nhóm không liên quan:
 
-| Profile | Áp dụng cho | Nhóm test (số thứ tự) |
-|---|---|---|
-| **A — Pure logic** | Mapper, DTO, Value Object, Service thuần, Enum | 1, 2, 3, 12, 14 |
-| **B — Persistence/API** | Handler có repo/external API, Query | A + 4, 5, 10, 11 |
-| **C — Event-driven/Critical** | Queue, webhook, concurrent, transaction, dispatch | Toàn bộ 14 nhóm |
+| Profile | Áp dụng cho | Baseline bắt buộc | Applicability scan bắt buộc |
+|---|---|---|---|
+| **A — Pure logic** | Mapper, DTO, Value Object, Service thuần, Enum | 1, 2, 3, 12, 14 | Không |
+| **B — Persistence/API** | Handler có repo/external API, Query | 1, 3, 4, 5, 10, 11 | 2, 6, 7, 8, 9, 12, 13, 14 |
+| **C — Event-driven/Critical** | Queue, webhook, concurrent, transaction, dispatch | Toàn bộ 14 nhóm | Không |
 
-AI chọn profile + giải thích 1 dòng. Sau đó **chỉ duyệt các nhóm trong profile đã chọn**.
+AI chọn profile + giải thích 1 dòng. Sau đó:
+
+- Profile A/C: duyệt các nhóm trong cột baseline.
+- Profile B: viết test cho nhóm baseline khi áp dụng; với nhóm applicability scan, bắt buộc đọc code thật để kết luận "áp dụng / không áp dụng", và viết test nếu code chứng minh có nhánh đó.
 
 ### Test Matrix 14 nhóm (duyệt theo profile đã chọn)
 
-Với mỗi nhóm **thuộc profile**: xác nhận có áp dụng không. Nếu có → viết test. Nếu không → ghi "N/A — lý do".
+Với mỗi nhóm **thuộc profile**: xác nhận có áp dụng không. Nếu có → viết test. Nếu không → ghi "N/A — lý do". Không bỏ qua happy path, validation fail, `BusinessException` hoặc side effect có thật chỉ vì diễn giải profile hẹp.
 
 | # | Nhóm | Mô tả | Ví dụ |
 |---|---|---|---|

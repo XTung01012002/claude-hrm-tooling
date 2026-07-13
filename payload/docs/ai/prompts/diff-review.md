@@ -22,7 +22,8 @@ Input sẽ bao gồm:
 - `git diff`
 - `git diff --staged`
 - Nội dung các file untracked (đọc trực tiếp)
-4. Nếu **không có thay đổi gì** (cả diff lẫn untracked): cảnh báo user, dừng.
+
+3. Nếu **không có thay đổi gì** (cả diff lẫn untracked): cảnh báo user, dừng.
 
 > ⚠️ Bỏ qua bước này = có thể review thiếu toàn bộ file mới.
 
@@ -51,14 +52,16 @@ Input sẽ bao gồm:
 ### Bước 5: Kết luận có thể commit hay chưa
 
 ```
-### Review Status: ✅ PASS | ⚠️ PASS WITH CONCERNS | ❌ REQUEST CHANGES
+### Review Status: ✅ PASS | ⚠️ PASS_WITH_CONCERNS | ❌ REQUEST_CHANGES
 ```
 
-Nếu `REQUEST CHANGES`: liệt kê cụ thể phải sửa gì trước khi commit.
+Nếu `REQUEST_CHANGES`: liệt kê cụ thể phải sửa gì trước khi commit.
 
 ### Bước 6: Sinh branch name + commit message + PR summary
 
-**Chỉ sinh khi status = PASS hoặc PASS WITH CONCERNS.**
+Không tự định nghĩa verdict mới. Dùng nguyên verdict và Merge blocking rules từ `docs/ai/prompts/review.md`.
+
+**Chỉ sinh branch/commit khi status = PASS hoặc PASS_WITH_CONCERNS và không có finding `Merge blocking: Yes`.**
 
 ---
 
@@ -67,7 +70,7 @@ Nếu `REQUEST CHANGES`: liệt kê cụ thể phải sửa gì trước khi com
 ```markdown
 ## Review Diff
 
-### Review Status: ✅ PASS | ⚠️ PASS WITH CONCERNS | ❌ REQUEST CHANGES
+### Review Status: ✅ PASS | ⚠️ PASS_WITH_CONCERNS | ❌ REQUEST_CHANGES
 
 ### Change Type: fix | feat | refactor | test | docs | chore
 
@@ -131,5 +134,5 @@ Convention: `type(scope): message tiếng Việt` (tham khảo commit mẫu `0f3
 
 1. **Branch + commit phải phản ánh diff thực tế**, không chỉ phản ánh mô tả user gửi kèm.
 2. **Commit message tiếng Việt**, súc tích, mô tả sự thay đổi thay vì liệt kê file.
-3. **Không sinh commit nếu diff có Blocker** — yêu cầu sửa trước.
+3. **Không sinh commit nếu diff có BLOCKER hoặc IMPORTANT có `Merge blocking: Yes`** — yêu cầu sửa trước.
 4. **Nếu diff trống**: cảnh báo user, kiểm tra cả `git diff --staged` và `git ls-files --others --exclude-standard -z`.

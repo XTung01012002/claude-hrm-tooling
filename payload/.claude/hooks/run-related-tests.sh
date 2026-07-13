@@ -57,46 +57,83 @@ fi
 LOCK_DIR="$REPO_ROOT/.claude/tmp/run-related-tests.lock"
 LOCK_PID_FILE="$LOCK_DIR/pid"
 
+. "$REPO_ROOT/.claude/scripts/validate-tooling-tmp.sh" || exit 2
+
 acquire_lock() {
-  mkdir -p "$REPO_ROOT/.claude/tmp"
-  if mkdir "$LOCK_DIR" 2>/dev/null; then
-    printf '%s\n' "$$" > "$LOCK_PID_FILE"
-    return 0
-  fi
-  
-  local old_pid=""
-  if [ -f "$LOCK_PID_FILE" ]; then
-    old_pid="$(cat "$LOCK_PID_FILE" 2>/dev/null || true)"
-  fi
-  
-  case "$old_pid" in
-    ''|*[!0-9]*) ;;
-    *)
-      if kill -0 "$old_pid" 2>/dev/null; then
-        printf '[run-related-tests hook] Another verification is running (PID %s).\n' "$old_pid" >&2
-        return 1
-      fi
-      ;;
-  esac
-  
-  rm -rf -- "$LOCK_DIR"
-  if mkdir "$LOCK_DIR" 2>/dev/null; then
-    printf '%s\n' "$$" > "$LOCK_PID_FILE"
-    return 0
-  fi
-  return 1
+    local old_pid stale_dir attempts=0
+
+    while [ "$attempts" -lt 3 ]; do
+        attempts=$((attempts + 1))
+
+        if mkdir "$LOCK_DIR" 2>/dev/null; then
+            if ! printf '%s\n' "$$" > "$LOCK_PID_FILE"; then
+                rm -rf -- "$LOCK_DIR"
+                return 1
+            fi
+            return 0
+        fi
+
+        if [ -L "$LOCK_DIR" ]; then
+            printf '[run-related-tests hook] Unsafe lock symlink: %s\n' "$LOCK_DIR" >&2
+            return 2
+        fi
+
+        old_pid="$(cat "$LOCK_PID_FILE" 2>/dev/null || true)"
+
+        case "$old_pid" in
+            ''|*[!0-9]*)
+                ;;
+            *)
+                if kill -0 "$old_pid" 2>/dev/null; then
+                    printf '[run-related-tests hook] Verification already running, PID %s.\n' "$old_pid" >&2
+                    return 1
+                fi
+                ;;
+        esac
+
+        stale_dir="${LOCK_DIR}.stale.$$"
+
+        if mv "$LOCK_DIR" "$stale_dir" 2>/dev/null; then
+            rm -rf -- "$stale_dir"
+        fi
+    done
+
+    return 1
 }
 
 if ! acquire_lock; then
-  exit 2
+    exit 2
 fi
 
 cleanup_lock() {
-  local current_pid="$(cat "$LOCK_PID_FILE" 2>/dev/null || true)"
-  if [ "$current_pid" = "$$" ]; then
-    rm -rf -- "$LOCK_DIR"
-  fi
+    local current_pid="$(cat "$LOCK_PID_FILE" 2>/dev/null || true)"
+    if [ "$current_pid" = "$$" ]; then
+        rm -rf -- "$LOCK_DIR"
+    fi
 }
+
+cleanup_all() {
+    local status=$?
+
+    trap - EXIT HUP INT TERM
+
+    cleanup_lock
+
+    if [ -n "${CHANGED_FILES_TMP:-}" ]; then
+        rm -f -- "$CHANGED_FILES_TMP"
+    fi
+
+    if [ -n "${GIT_ERRORS_TMP:-}" ]; then
+        rm -f -- "$GIT_ERRORS_TMP"
+    fi
+
+    exit "$status"
+}
+
+trap cleanup_all EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 unverified() {
   echo "[run-related-tests hook] ⚠️ UNVERIFIED — $1" >&2
@@ -115,7 +152,6 @@ git -C "$REPO_ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1 ||
 
 CHANGED_FILES_TMP="$(mktemp "${TMPDIR:-/tmp}/run-related-tests.changed.XXXXXX")"
 GIT_ERRORS_TMP="$(mktemp "${TMPDIR:-/tmp}/run-related-tests.git-errors.XXXXXX")"
-trap 'cleanup_lock; rm -f "$CHANGED_FILES_TMP" "$GIT_ERRORS_TMP"' EXIT HUP INT TERM
 
 has_make_target() {
   [ -f "$REPO_ROOT/Makefile.ai" ]
