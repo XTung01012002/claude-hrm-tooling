@@ -54,6 +54,50 @@ if command -v jq >/dev/null 2>&1; then
   fi
 fi
 
+LOCK_DIR="$REPO_ROOT/.claude/tmp/run-related-tests.lock"
+LOCK_PID_FILE="$LOCK_DIR/pid"
+
+acquire_lock() {
+  mkdir -p "$REPO_ROOT/.claude/tmp"
+  if mkdir "$LOCK_DIR" 2>/dev/null; then
+    printf '%s\n' "$$" > "$LOCK_PID_FILE"
+    return 0
+  fi
+  
+  local old_pid=""
+  if [ -f "$LOCK_PID_FILE" ]; then
+    old_pid="$(cat "$LOCK_PID_FILE" 2>/dev/null || true)"
+  fi
+  
+  case "$old_pid" in
+    ''|*[!0-9]*) ;;
+    *)
+      if kill -0 "$old_pid" 2>/dev/null; then
+        printf '[run-related-tests hook] Another verification is running (PID %s).\n' "$old_pid" >&2
+        return 1
+      fi
+      ;;
+  esac
+  
+  rm -rf -- "$LOCK_DIR"
+  if mkdir "$LOCK_DIR" 2>/dev/null; then
+    printf '%s\n' "$$" > "$LOCK_PID_FILE"
+    return 0
+  fi
+  return 1
+}
+
+if ! acquire_lock; then
+  exit 2
+fi
+
+cleanup_lock() {
+  local current_pid="$(cat "$LOCK_PID_FILE" 2>/dev/null || true)"
+  if [ "$current_pid" = "$$" ]; then
+    rm -rf -- "$LOCK_DIR"
+  fi
+}
+
 unverified() {
   echo "[run-related-tests hook] ⚠️ UNVERIFIED — $1" >&2
   if [ "$TEST_MODE" = "strict" ]; then
@@ -71,7 +115,7 @@ git -C "$REPO_ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1 ||
 
 CHANGED_FILES_TMP="$(mktemp "${TMPDIR:-/tmp}/run-related-tests.changed.XXXXXX")"
 GIT_ERRORS_TMP="$(mktemp "${TMPDIR:-/tmp}/run-related-tests.git-errors.XXXXXX")"
-trap 'rm -f "$CHANGED_FILES_TMP" "$GIT_ERRORS_TMP"' EXIT
+trap 'cleanup_lock; rm -f "$CHANGED_FILES_TMP" "$GIT_ERRORS_TMP"' EXIT HUP INT TERM
 
 has_make_target() {
   [ -f "$REPO_ROOT/Makefile.ai" ]

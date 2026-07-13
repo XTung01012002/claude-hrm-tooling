@@ -75,7 +75,17 @@ collect_lint_files() {
 while IFS= read -r f; do
   [ -z "$f" ] && continue
   case "$f" in *.php) ;; *) continue ;; esac
-  "$REPO_ROOT/.claude/scripts/record-touched-file.sh" "$REPO_ROOT" "$f" || true
+  
+  record_rc=0
+  "$REPO_ROOT/.claude/scripts/record-touched-file.sh" "$REPO_ROOT" "$f" || record_rc=$?
+  
+  case "$record_rc" in
+    0|10) ;;
+    *)
+      printf '[format-dirty] ⚠️ Unable to safely record touched file: %s\n' "$f" >&2
+      exit 2
+      ;;
+  esac
 done < <(collect_lint_files)
 
 # Kiểm tra Docker — KHÔNG fallback sang host

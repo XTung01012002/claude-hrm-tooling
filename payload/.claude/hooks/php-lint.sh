@@ -32,7 +32,15 @@ esac
 REL="${ABS#$REPO_ROOT/}"
 
 # Ghi nhận file đã chạm vào file tạm của session
-"$REPO_ROOT/.claude/scripts/record-touched-file.sh" "$REPO_ROOT" "$ABS" || true
+record_rc=0
+"$REPO_ROOT/.claude/scripts/record-touched-file.sh" "$REPO_ROOT" "$ABS" || record_rc=$?
+case "$record_rc" in
+  0|10) ;;
+  *)
+    printf '[php-lint hook] ⚠️ Unable to safely record touched file: %s\n' "$ABS" >&2
+    exit 2
+    ;;
+esac
 
 has_make_target() {
   [ -f "$REPO_ROOT/Makefile.ai" ]

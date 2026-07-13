@@ -17,20 +17,20 @@ FILE_PATH="$2"
 # Reject control characters including newline
 if printf '%s' "$FILE_PATH" | grep -q '[[:cntrl:]]'; then
   printf '[record-touched-file] ⚠️ Path contains control characters, rejected.\n' >&2
-  exit 1
+  exit 2
 fi
 
 # Only process .php files
 case "$FILE_PATH" in
   *.php) ;;
-  *) exit 0 ;;
+  *) exit 10 ;;
 esac
 
 # Reject path traversal attempts
 case "/$FILE_PATH/" in
   */../* | */./*)
     printf '[record-touched-file] ⚠️ Path traversal detected, rejected.\n' >&2
-    exit 1
+    exit 2
     ;;
 esac
 
@@ -40,21 +40,44 @@ case "$FILE_PATH" in
   *)  ABS="$REPO_ROOT/$FILE_PATH" ;;
 esac
 
+PHYSICAL_ROOT="$(cd "$REPO_ROOT" 2>/dev/null && pwd -P)" || {
+  printf '[record-touched-file] ⚠️ Cannot resolve repository root.\n' >&2
+  exit 2
+}
+
+PARENT="$(dirname "$ABS")"
+PHYSICAL_PARENT="$(cd "$PARENT" 2>/dev/null && pwd -P)" || {
+  printf '[record-touched-file] ⚠️ Parent directory does not exist or cannot be resolved: %s\n' "$FILE_PATH" >&2
+  exit 2
+}
+
+case "$PHYSICAL_PARENT/" in
+  "$PHYSICAL_ROOT/"*) ;;
+  *)
+    printf '[record-touched-file] ⚠️ Touched file resolves outside repository: %s\n' "$FILE_PATH" >&2
+    exit 2
+    ;;
+esac
+
+if [ -L "$ABS" ]; then
+  printf '[record-touched-file] ⚠️ Touched file must not be a symlink: %s\n' "$FILE_PATH" >&2
+  exit 2
+fi
+
 # Simple resolution by stripping REPO_ROOT prefix
-# Note: we assume REPO_ROOT is an absolute path without trailing slash
 PREFIX="${REPO_ROOT%/}/"
 case "$ABS" in
   "$PREFIX"*) REL="${ABS#$PREFIX}" ;;
   *) 
     printf '[record-touched-file] ⚠️ File %s is outside repository, rejected.\n' "$FILE_PATH" >&2
-    exit 1
+    exit 2
     ;;
 esac
 
 # Must be under source/
 case "$REL" in
   source/*) ;;
-  *) exit 0 ;; # Silently ignore files outside source/ (e.g. scripts)
+  *) exit 10 ;; # Silently ignore files outside source/ (e.g. scripts)
 esac
 
 MANIFEST_DIR="$REPO_ROOT/.claude/tmp"

@@ -85,19 +85,25 @@ echo "Cai tooling vao: $TARGET"
 TRACKED_CONFLICTS=0
 SYMLINK_ESCAPES=0
 
-# Helper to check if any component in the path is a symlink
-check_symlink_escape() {
+validate_parent_chain() {
   local path="$1"
   local current=""
   IFS='/' read -ra PARTS <<< "$path"
-  for part in "${PARTS[@]}"; do
+  local max=$(( ${#PARTS[@]} - 1 ))
+  for ((i=0; i<max; i++)); do
+    local part="${PARTS[i]}"
     [ -z "$part" ] && continue
     current="$current/$part"
     if [ -L "$current" ]; then
-      return 0 # is a symlink
+      printf 'Parent component is a symlink: %s\n' "$current" >&2
+      return 1
+    fi
+    if [ -e "$current" ] && [ ! -d "$current" ]; then
+      printf 'Parent component is not a directory: %s\n' "$current" >&2
+      return 1
     fi
   done
-  return 1 # no symlink found
+  return 0
 }
 
 # Gom danh sách các file vật lý từ MANAGED_PATHS để kiểm tra
@@ -118,9 +124,11 @@ done < <(
 for rel in "${FILES_TO_INSTALL[@]}"; do
   dest="$TARGET/$rel"
   
-  # 1. Chặn parent symlink escape
-  if check_symlink_escape "$dest"; then
-    echo "❌ CẢNH BÁO: Phát hiện symlink trong đường dẫn đích (nguy cơ path traversal): $rel" >&2
+  # 1. Chặn parent symlink escape và parent non-directory
+  if ! validate_parent_chain "$dest"; then
+    SYMLINK_ESCAPES=$((SYMLINK_ESCAPES + 1))
+  elif [ -L "$dest" ]; then
+    echo "❌ CẢNH BÁO: Phát hiện symlink tại đường dẫn đích (nguy cơ path traversal): $rel" >&2
     SYMLINK_ESCAPES=$((SYMLINK_ESCAPES + 1))
   fi
 
@@ -138,25 +146,10 @@ ALIAS_PATHS=(
   ".claude/skills"
 )
 
-check_parent_symlink_escape() {
-  local path="$1"
-  local current=""
-  IFS='/' read -ra PARTS <<< "$path"
-  local max=$(( ${#PARTS[@]} - 1 ))
-  for ((i=0; i<max; i++)); do
-    local part="${PARTS[i]}"
-    [ -z "$part" ] && continue
-    current="$current/$part"
-    if [ -L "$current" ]; then
-      return 0
-    fi
-  done
-  return 1
-}
+
 
 for rel in "${ALIAS_PATHS[@]}"; do
-  if check_parent_symlink_escape "$TARGET/$rel"; then
-    echo "❌ CẢNH BÁO: Phát hiện symlink trong thư mục cha của alias đích (nguy cơ path traversal): $rel" >&2
+  if ! validate_parent_chain "$TARGET/$rel"; then
     SYMLINK_ESCAPES=$((SYMLINK_ESCAPES + 1))
   fi
 done
@@ -164,19 +157,27 @@ done
 for alias_dir in ".agents" ".claude"; do
   alias_path="$alias_dir/skills"
   dest="$TARGET/$alias_path"
+  
   if [ -L "$dest" ]; then
-    if [ "$(readlink "$dest")" != "../skills" ] && [ "$FORCE_OVERWRITE_TRACKED" != "1" ]; then
-      echo "❌ CẢNH BÁO: Alias $alias_path trỏ sai đích. Dùng --force-overwrite-tracked để sửa." >&2
-      TRACKED_CONFLICTS=$((TRACKED_CONFLICTS + 1))
+    if [ "$(readlink "$dest")" != "../skills" ]; then
+      tracked_alias_entries="$(git -C "$TARGET" ls-files -- "$alias_path" 2>/dev/null)"
+      if [ -n "$tracked_alias_entries" ] && [ "$FORCE_OVERWRITE_TRACKED" != "1" ]; then
+        echo "❌ CẢNH BÁO: Alias $alias_path trỏ sai đích và đang được Git track. Dùng --force-overwrite-tracked để sửa." >&2
+        TRACKED_CONFLICTS=$((TRACKED_CONFLICTS + 1))
+      fi
     fi
   elif [ -d "$dest" ]; then
-    if ! diff -q -r "$SRC/skills" "$dest" >/dev/null 2>&1 && [ "$FORCE_OVERWRITE_TRACKED" != "1" ]; then
-      echo "❌ CẢNH BÁO: Thư mục $alias_path chứa thay đổi so với bản gốc. Dùng --force-overwrite-tracked để thay bằng symlink." >&2
+    tracked_alias_entries="$(git -C "$TARGET" ls-files -- "$alias_path" "$alias_path/**" 2>/dev/null)"
+    if [ -n "$tracked_alias_entries" ] && [ "$FORCE_OVERWRITE_TRACKED" != "1" ]; then
+      echo "❌ CẢNH BÁO: Thư mục $alias_path chứa file đang được Git track. Dùng --force-overwrite-tracked để chép đè." >&2
       TRACKED_CONFLICTS=$((TRACKED_CONFLICTS + 1))
     fi
-  elif [ -e "$dest" ] && [ "$FORCE_OVERWRITE_TRACKED" != "1" ]; then
-    echo "❌ CẢNH BÁO: $alias_path không phải là thư mục hay symlink hợp lệ." >&2
-    TRACKED_CONFLICTS=$((TRACKED_CONFLICTS + 1))
+  elif [ -e "$dest" ]; then
+    tracked_alias_entries="$(git -C "$TARGET" ls-files -- "$alias_path" 2>/dev/null)"
+    if [ -n "$tracked_alias_entries" ] && [ "$FORCE_OVERWRITE_TRACKED" != "1" ]; then
+      echo "❌ CẢNH BÁO: File $alias_path đang được Git track. Dùng --force-overwrite-tracked để sửa." >&2
+      TRACKED_CONFLICTS=$((TRACKED_CONFLICTS + 1))
+    fi
   fi
 done
 
@@ -258,7 +259,7 @@ if [ -d "$TARGET/.git" ] || [ -f "$TARGET/.git" ]; then
       *) EXCLUDE="$TARGET/$EXCLUDE" ;;
     esac
     mkdir -p "$(dirname "$EXCLUDE")"
-    for p in CLAUDE.md AGENTS.md .claude/ .agent/ .codex/ docs/ai/ Makefile.ai '*.bak' '*.bak.*' '.claude/tooling-backups/'; do
+    for p in CLAUDE.md AGENTS.md .claude/ .agent/ .codex/ docs/ai/ Makefile.ai '*.bak' '*.bak.*' '.claude/tooling-backups/' 'skills/' '.agents/skills/'; do
       grep -qxF "$p" "$EXCLUDE" 2>/dev/null || printf '%s\n' "$p" >> "$EXCLUDE"
     done
     echo "  + da them file AI vao $EXCLUDE (giu ngoai git team)"

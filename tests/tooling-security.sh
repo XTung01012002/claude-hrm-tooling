@@ -6,7 +6,32 @@ TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/tooling-security.XXXXXX")"
 OUT="$TMP_DIR/out"
 FAILURES=0
 
-trap 'rm -rf "$TMP_DIR"' EXIT
+clean_up() {
+  rm -rf "$TMP_DIR"
+}
+
+snapshot_tree() {
+  local root="$1"
+  (
+    cd "$root" || exit 1
+    find . -mindepth 1 -print |
+      LC_ALL=C sort |
+      while IFS= read -r path; do
+        if [ -L "$path" ]; then
+          printf 'L %s -> %s\n' "$path" "$(readlink "$path")"
+        elif [ -f "$path" ]; then
+          printf 'F %s ' "$path"
+          shasum "$path" | awk '{print $1}'
+        elif [ -d "$path" ]; then
+          printf 'D %s\n' "$path"
+        else
+          printf 'O %s\n' "$path"
+        fi
+      done
+  ) | shasum | awk '{print $1}'
+}
+
+trap 'clean_up' EXIT
 
 pass() {
   printf 'ok - %s\n' "$1"
@@ -879,6 +904,7 @@ DOCKER_MOCK
 
   mkdir -p "$project/.claude/tmp" "$project/docker/local"
   printf 'source/src/Foo.php\n' > "$project/.claude/tmp/touched-files"
+  printf 'source/src/Bar.php\n' > "$project/.claude/tmp/touched-files.processing.12345"
 
   # Run stop
   set +e
@@ -909,7 +935,7 @@ test_record_touched_rejects_path_outside_repo() {
   local status=$?
   set -e
   
-  [ "$status" -eq 1 ] && grep -q "outside repository" "$OUT"
+  [ "$status" -eq 2 ] && grep -q "outside repository" "$OUT"
 }
 
 test_record_touched_rejects_dotdot_escape() {
@@ -923,7 +949,8 @@ test_record_touched_rejects_dotdot_escape() {
   local status=$?
   set -e
   
-  [ "$status" -eq 1 ] && grep -q "Path traversal detected" "$OUT"
+  [ "$status" -eq 2 ] || return 1
+  grep -q "Path traversal detected" "$OUT"
 }
 
 test_tracked_conflict_leaves_target_unchanged() {
@@ -938,7 +965,7 @@ test_tracked_conflict_leaves_target_unchanged() {
   
   # Hash before install
   local hash_before
-  hash_before=$(find "$project" -type f -print0 | sort -z | xargs -0 shasum -a 256 | shasum -a 256)
+  hash_before=$(snapshot_tree "$project")
 
   set +e
   "$ROOT/install.sh" "$project" >"$OUT" 2>&1
@@ -949,7 +976,7 @@ test_tracked_conflict_leaves_target_unchanged() {
   
   # Hash after install
   local hash_after
-  hash_after=$(find "$project" -type f -print0 | sort -z | xargs -0 shasum -a 256 | shasum -a 256)
+  hash_after=$(snapshot_tree "$project")
   
   [ "$hash_before" = "$hash_after" ]
 }
@@ -1025,6 +1052,237 @@ test_installer_keeps_correct_skill_alias() {
   [ "$(readlink "$project/.agents/skills")" = "../skills" ]
 }
 
+test_installer_preserves_tracked_correct_skill_alias() {
+  local project="$TMP_DIR/preserves-tracked-correct-alias"
+  mkdir -p "$project/source" "$project/docker/local" "$project/.agents"
+  printf '{}' > "$project/source/composer.json"
+  git -C "$project" init -q
+  
+  ln -s "../skills" "$project/.agents/skills"
+  git -C "$project" add .agents/skills
+  git -C "$project" commit -m "add symlink"
+
+  set +e
+  "$ROOT/install.sh" "$project" >"$OUT" 2>&1
+  local status=$?
+  set -e
+  
+  [ "$status" -eq 0 ] || return 1
+}
+
+test_installer_rejects_tracked_wrong_skill_symlink() {
+  local project="$TMP_DIR/rejects-tracked-wrong-alias"
+  mkdir -p "$project/source" "$project/docker/local" "$project/.agents"
+  printf '{}' > "$project/source/composer.json"
+  git -C "$project" init -q
+  
+  ln -s "../wrong" "$project/.agents/skills"
+  git -C "$project" add .agents/skills
+  git -C "$project" commit -m "add wrong symlink"
+
+  set +e
+  "$ROOT/install.sh" "$project" >"$OUT" 2>&1
+  local status=$?
+  set -e
+  
+  [ "$status" -eq 2 ] || return 1
+  grep -q "đang được Git track" "$OUT"
+}
+
+test_installer_force_migrates_tracked_legacy_skill_directory() {
+  local project="$TMP_DIR/force-migrates-legacy-dir"
+  mkdir -p "$project/source" "$project/docker/local" "$project/.agents/skills/task-breakdown"
+  printf '{}' > "$project/source/composer.json"
+  git -C "$project" init -q
+  
+  touch "$project/.agents/skills/task-breakdown/SKILL.md"
+  git -C "$project" add .agents/skills
+  git -C "$project" commit -m "add legacy dir"
+
+  set +e
+  "$ROOT/install.sh" --force-overwrite-tracked "$project" >"$OUT" 2>&1
+  local status=$?
+  set -e
+  
+  [ "$status" -eq 0 ] || return 1
+  [ -L "$project/.agents/skills" ] || return 1
+}
+
+test_installer_does_not_ignore_entire_agents_directory() {
+  local project="$TMP_DIR/not-ignore-agents"
+  mkdir -p "$project/source" "$project/docker/local"
+  printf '{}' > "$project/source/composer.json"
+  git -C "$project" init -q
+
+  set +e
+  "$ROOT/install.sh" "$project" >"$OUT" 2>&1
+  local status=$?
+  set -e
+  
+  [ "$status" -eq 0 ] || return 1
+  
+  local exclude_file
+  exclude_file="$project/$(git -C "$project" rev-parse --git-path info/exclude)"
+  [ -f "$exclude_file" ] || return 1
+  
+  grep -q "\.agents/skills/" "$exclude_file" || return 1
+  ! grep -q "^\.agents/$" "$exclude_file" || return 1
+}
+
+test_installer_rejects_dangling_symlink_parent() {
+  local project="$TMP_DIR/rejects-dangling-parent"
+  mkdir -p "$project/source" "$project/docker/local"
+  printf '{}' > "$project/source/composer.json"
+  
+  ln -s "/does/not/exist" "$project/.agents"
+
+  set +e
+  "$ROOT/install.sh" "$project" >"$OUT" 2>&1
+  local status=$?
+  set -e
+  
+  [ "$status" -eq 1 ] || return 1
+  grep -q "Parent component is a symlink" "$OUT"
+}
+
+test_second_stop_is_blocked_while_first_is_running() {
+  local project="$TMP_DIR/concurrent-stop-lock"
+  mkdir -p "$project/.claude/hooks" "$project/.claude/tmp"
+  cp "$ROOT/payload/.claude/hooks/run-related-tests.sh" "$project/.claude/hooks/run-related-tests.sh"
+  chmod +x "$project/.claude/hooks/run-related-tests.sh"
+  
+  # Tạo một script giả mạo làm việc lâu thay thế cho make ai-test? Không cần, ta chỉ cần tạo lock có owner là một tiến trình sống dài
+  mkdir -p "$project/.claude/tmp/run-related-tests.lock"
+  
+  # Tạo process đang ngủ
+  sleep 10 &
+  local bg_pid=$!
+  printf '%s\n' "$bg_pid" > "$project/.claude/tmp/run-related-tests.lock/pid"
+  
+  set +e
+  (
+    cd "$project"
+    AI_TEST_MODE=strict .claude/hooks/run-related-tests.sh <<< '{}'
+  ) >"$OUT" 2>&1
+  local status=$?
+  set -e
+  
+  kill "$bg_pid" 2>/dev/null || true
+  
+  [ "$status" -eq 2 ] || return 1
+  grep -q "Another verification is running" "$OUT"
+}
+
+test_stale_stop_lock_is_recovered() {
+  local project="$TMP_DIR/stale-stop-lock"
+  mkdir -p "$project/.claude/hooks" "$project/.claude/tmp" "$project/source" "$project/docker/local"
+  cp "$ROOT/payload/.claude/hooks/run-related-tests.sh" "$project/.claude/hooks/run-related-tests.sh"
+  chmod +x "$project/.claude/hooks/run-related-tests.sh"
+  
+  # Tạo lock thuộc về PID chết
+  mkdir -p "$project/.claude/tmp/run-related-tests.lock"
+  printf '999999\n' > "$project/.claude/tmp/run-related-tests.lock/pid"
+  
+  # Khởi tạo repo
+  git -C "$project" init -q
+  touch "$project/Makefile.ai"
+  cat << 'MOCK' > "$project/Makefile.ai"
+ai-test:
+	exit 0
+MOCK
+  mkdir -p "$project/bin"
+  cat << 'DOCKER_MOCK' > "$project/bin/docker"
+#!/usr/bin/env bash
+exit 0
+DOCKER_MOCK
+  chmod +x "$project/bin/docker"
+  
+  set +e
+  (
+    cd "$project"
+    export PATH="$project/bin:$PATH"
+    AI_TEST_MODE=strict .claude/hooks/run-related-tests.sh <<< '{}'
+  ) >"$OUT" 2>&1
+  local status=$?
+  set -e
+  
+  # Should pass and recover the lock (since no touched files = 0 exits)
+  [ "$status" -eq 0 ] || return 1
+}
+
+test_record_touched_rejects_final_file_symlink_escape() {
+  local project="$TMP_DIR/record-symlink-escape"
+  mkdir -p "$project/.claude/scripts" "$project/source"
+  cp "$ROOT/payload/.claude/scripts/record-touched-file.sh" "$project/.claude/scripts/record-touched-file.sh"
+  chmod +x "$project/.claude/scripts/record-touched-file.sh"
+
+  local outside="$TMP_DIR/outside.php"
+  touch "$outside"
+  ln -s "$outside" "$project/source/Test.php"
+
+  set +e
+  "$project/.claude/scripts/record-touched-file.sh" "$project" "source/Test.php" >"$OUT" 2>&1
+  local status=$?
+  set -e
+  
+  [ "$status" -eq 2 ] || return 1
+  grep -q "must not be a symlink" "$OUT"
+}
+
+test_format_dirty_fallback_fails_when_recording_fails() {
+  local project="$TMP_DIR/format-fails-recording"
+  mkdir -p "$project/.claude/hooks" "$project/.claude/scripts" "$project/source/src"
+  cp "$ROOT/payload/.claude/hooks/format-dirty.sh" "$project/.claude/hooks/format-dirty.sh"
+  chmod +x "$project/.claude/hooks/format-dirty.sh"
+  
+  # Mock record-touched-file
+  cat << 'MOCK' > "$project/.claude/scripts/record-touched-file.sh"
+#!/usr/bin/env bash
+exit 2
+MOCK
+  chmod +x "$project/.claude/scripts/record-touched-file.sh"
+  
+  git -C "$project" init -q
+  touch "$project/source/src/Foo.php"
+  
+  set +e
+  (
+    cd "$project"
+    .claude/hooks/format-dirty.sh <<< '{}'
+  ) >"$OUT" 2>&1
+  local status=$?
+  set -e
+  
+  [ "$status" -eq 2 ] || return 1
+  grep -q "Unable to safely record touched file" "$OUT"
+}
+
+test_php_lint_fails_when_recording_fails() {
+  local project="$TMP_DIR/php-lint-fails-recording"
+  mkdir -p "$project/.claude/hooks" "$project/.claude/scripts" "$project/source/src"
+  cp "$ROOT/payload/.claude/hooks/php-lint.sh" "$project/.claude/hooks/php-lint.sh"
+  chmod +x "$project/.claude/hooks/php-lint.sh"
+  
+  cat << 'MOCK' > "$project/.claude/scripts/record-touched-file.sh"
+#!/usr/bin/env bash
+exit 2
+MOCK
+  chmod +x "$project/.claude/scripts/record-touched-file.sh"
+  
+  touch "$project/source/src/Foo.php"
+  
+  set +e
+  (
+    cd "$project"
+    jq -n '{"tool_input": {"file_path": "source/src/Foo.php"}}' | .claude/hooks/php-lint.sh
+  ) >"$OUT" 2>&1
+  local status=$?
+  set -e
+  
+  [ "$status" -eq 2 ] || return 1
+  grep -q "Unable to safely record touched file" "$OUT"
+}
+
 run_test "strict test hook blocked without Makefile" test_strict_missing_makefile_remains_blocked
 run_test "strict test hook blocked on failed test" test_strict_failed_test_remains_blocked
 run_test "strict test hook success clears processing snapshot" test_success_clears_old_processing_snapshot
@@ -1034,7 +1292,16 @@ run_test "tracked conflict leaves target unchanged" test_tracked_conflict_leaves
 run_test "installer rejects symlinked managed directory" test_installer_rejects_symlinked_managed_directory
 run_test "installer rejects symlinked agents parent" test_installer_rejects_symlinked_agents_parent
 run_test "format dirty hook records exact payload file" test_format_dirty_records_exact_payload_file
-run_test "installer keeps correct skill alias" test_installer_keeps_correct_skill_alias
+run_test "installer preserves tracked correct skill alias" test_installer_preserves_tracked_correct_skill_alias
+run_test "installer rejects tracked wrong skill symlink" test_installer_rejects_tracked_wrong_skill_symlink
+run_test "installer force migrates tracked legacy skill directory" test_installer_force_migrates_tracked_legacy_skill_directory
+run_test "installer does not ignore entire agents directory" test_installer_does_not_ignore_entire_agents_directory
+run_test "installer rejects dangling symlink parent" test_installer_rejects_dangling_symlink_parent
+run_test "second stop is blocked while first is running" test_second_stop_is_blocked_while_first_is_running
+run_test "stale stop lock is recovered" test_stale_stop_lock_is_recovered
+run_test "record touched rejects final file symlink escape" test_record_touched_rejects_final_file_symlink_escape
+run_test "format dirty fallback fails when recording fails" test_format_dirty_fallback_fails_when_recording_fails
+run_test "php lint fails when recording fails" test_php_lint_fails_when_recording_fails
 
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s test(s) failed\n' "$FAILURES" >&2
