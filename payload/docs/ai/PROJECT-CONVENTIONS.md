@@ -146,6 +146,15 @@ Response được định nghĩa ở `source/bootstrap/app.php` + `ApiBaseContro
   - Kiểm PHP container: `make -f Makefile.ai ai-php-version`
 - Composer/deps vẫn chạy trong container (`make shell` → `composer install` → `make copy-vendor`) hoặc dùng các target composer sẵn có của `Makefile`.
 
+### Local runner mode (opt-in)
+
+Project hỗ trợ Hybrid local mode (chạy PHP tĩnh/test trực tiếp trên host để tăng tốc, Artisan/DB vẫn qua Docker). Để bật, tạo file `.claude/runner.local` (xem chi tiết tại [`SETUP-LOCAL.md`](SETUP-LOCAL.md)).
+
+**Quy tắc version:**
+- Code `source/src` + `source/app`: BẮT BUỘC PHP 8.2-compatible.
+- Test (`source/tests`): Khuyến nghị 8.2 (test dùng syntax 8.3 chỉ chạy được local).
+- Trước merge, luôn chạy `make -f Makefile.ai ai-check-docker` và `make -f Makefile.ai ai-test-docker` để ép verify qua môi trường container 8.2.
+
 ---
 
 ## §8. Multi-tenancy & Security

@@ -1,6 +1,6 @@
 # claude-hrm-tooling
 
-Bộ AI tooling cá nhân cho **HRM API**, tách khỏi repo code team. Đồng bộ nhiều máy qua remote private của bạn, cài vào project bằng `install.sh`. Hỗ trợ **Claude Code · Codex · Antigravity** dùng chung 1 nguồn chân lý.
+Bộ AI tooling cá nhân cho **HRM API**, tách khỏi repo code team. Đồng bộ nhiều máy qua remote private của bạn, cài vào project bằng `install.sh`. Hỗ trợ **Claude Code · Codex · Antigravity** dùng chung 1 nguồn chân lý. Kèm theo tính năng [Local runner mode (opt-in)](payload/docs/ai/SETUP-LOCAL.md) để dev nhanh trên máy host.
 
 > **Hướng dẫn dùng & cài chi tiết: [`HUONG-DAN-SU-DUNG.md`](HUONG-DAN-SU-DUNG.md)** — đây là nguồn chuẩn; README chỉ tóm tắt.
 

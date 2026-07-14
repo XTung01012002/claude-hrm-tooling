@@ -22,6 +22,7 @@
 - Không chạy trực tiếp `php`, `composer`, `php artisan`, `vendor/bin/phpunit`, `vendor/bin/pint` trên host khi kiểm tra code.
 - Lệnh chuẩn cho AI sau khi sửa PHP: `AI_FILE=source/... make -f Makefile.ai ai-pint` + `AI_FILE=source/... make -f Makefile.ai ai-lint`; nếu có test tương ứng thì `AI_TEST=tests/Unit/<X>Test.php make -f Makefile.ai ai-test`.
 - Artisan read-only dùng target cố định: `make -f Makefile.ai ai-route-list`, `make -f Makefile.ai ai-migrate-status`, `make -f Makefile.ai ai-about`, `make -f Makefile.ai ai-event-list`; kiểm PHP version: `make -f Makefile.ai ai-php-version`. Lệnh ghi dữ liệu (migrate, seed, cache:clear...) phải chạy tay.
+- Hỗ trợ **Local runner mode (opt-in)** (nhanh hơn nhưng dùng PHP host): bật qua `touch .claude/runner.local`. Bắt buộc chạy `make -f Makefile.ai ai-check-docker` và `ai-test-docker` để ép verify qua container chuẩn trước khi merge.
 
 ## Tự kiểm tra sau khi sửa code (BẮT BUỘC — môi trường không có hook)
 - Sau khi sửa/sinh `.php`: **TỰ chạy** `AI_FILE=... make -f Makefile.ai ai-lint` (+ `ai-pint`, + `AI_TEST=... make -f Makefile.ai ai-test` nếu có test) — coi như bước bắt buộc, không bỏ.

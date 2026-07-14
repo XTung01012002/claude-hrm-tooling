@@ -595,12 +595,8 @@ test_strict_fails_when_git_index_is_corrupt() {
   printf '<?php\n' > "$project/source/src/Foo.php"
   git -C "$project" init -q
   printf 'not a git index\n' > "$project/.git/index"
-<<<<<<< ours
   mkdir -p "$project/.claude/tmp"
   touch "$project/.claude/tmp/session-had-edits"
-=======
-  mkdir -p "$project/.claude/tmp" && touch "$project/.claude/tmp/session-had-edits"
->>>>>>> theirs
 
   set +e
   (
@@ -921,6 +917,42 @@ fixture="$TMP_DIR/project"
 make_fixture "$fixture"
 make_fake_docker "$TMP_DIR/bin" "$TMP_DIR/docker.log"
 
+test_runner_local_symlink_fails() {
+  local fixture="$TMP_DIR/project"
+  mkdir -p "$fixture/.claude"
+  touch "$fixture/.claude/real_runner"
+  ln -s "$fixture/.claude/real_runner" "$fixture/.claude/runner.local"
+
+  if run_make_env "$fixture" AI_FILE source/src/Foo.php ai-lint 2>"$TMP_DIR/err.log"; then
+    return 1
+  fi
+  grep -qi 'Symlink' "$TMP_DIR/err.log"
+}
+
+test_runner_local_invalid_content_fails() {
+  local fixture="$TMP_DIR/project"
+  mkdir -p "$fixture/.claude"
+  rm -f "$fixture/.claude/runner.local"
+  echo "rm -rf /" > "$fixture/.claude/runner.local"
+
+  if run_make_env "$fixture" AI_FILE source/src/Foo.php ai-lint 2>"$TMP_DIR/err.log"; then
+    return 1
+  fi
+  grep -qi 'Invalid runner.local content' "$TMP_DIR/err.log"
+}
+
+test_runner_local_missing_falls_back_to_docker() {
+  local fixture="$TMP_DIR/project"
+  rm -f "$fixture/.claude/runner.local"
+
+  : > "$TMP_DIR/docker.log"
+  run_make_env "$fixture" AI_FILE source/src/Foo.php ai-lint >/dev/null
+
+  grep -Fxq 'php' "$TMP_DIR/docker.log" &&
+    grep -Fxq -- '-l' "$TMP_DIR/docker.log" &&
+    grep -Fxq 'src/Foo.php' "$TMP_DIR/docker.log"
+}
+
 run_test "valid lint passes container-relative path" test_valid_lint_uses_container_path
 run_test "ai-test rejects && injection" test_rejects_shell_operators_in_test_path
 run_test "ai-test rejects semicolon injection" test_rejects_semicolon_in_test_path
@@ -942,6 +974,9 @@ run_test "block-host-tools fails closed on unknown payload" test_block_host_tool
 run_test "MAKEFLAGS cannot override Makefile runner" test_make_env_override_cannot_replace_runner
 run_test "block-host-tools rejects MAKEFLAGS/AI_RUN prefix" test_block_host_tools_rejects_makeflags_ai_run_prefix
 run_test "block-host-tools rejects MAKEFILES prefix" test_block_host_tools_rejects_makefiles_prefix
+run_test "runner.local symlink fails" test_runner_local_symlink_fails
+run_test "runner.local invalid content fails" test_runner_local_invalid_content_fails
+run_test "runner.local missing falls back to docker" test_runner_local_missing_falls_back_to_docker
 run_test "block-host-tools rejects env MAKEFLAGS/AI_RUN" test_block_host_tools_rejects_env_makeflags_ai_run
 run_test "block-host-tools rejects assignment after make" test_block_host_tools_rejects_assignment_after_make
 run_test "block-host-tools rejects unexpected env prefix" test_block_host_tools_rejects_unexpected_env_prefix

@@ -19,6 +19,33 @@ container_exec() {
   )
 }
 
+runner_local_enabled() {
+  local conf_file="$repo_root/.claude/runner.local"
+  [ -f "$conf_file" ] || return 1
+  ensure_not_symlink "$conf_file"
+
+  # Validate content
+  local content
+  content="$(cat "$conf_file")"
+  if [ -n "$content" ]; then
+    [[ "$content" =~ ^[A-Za-z0-9./_-]+$ ]] || die "Invalid runner.local content: $content"
+    [ -x "$content" ] || die "PHP binary in runner.local does not exist or is not executable: $content"
+    php_bin="$content"
+  else
+    php_bin="php"
+    command -v "$php_bin" >/dev/null 2>&1 || die "Default 'php' not found on host"
+  fi
+  return 0
+}
+
+host_exec() {
+  echo "⚠️ LOCAL MODE — PHP <8.3.x> trên host; chuẩn cuối vẫn là container 8.2.31 (chạy ai-check-docker/ai-test-docker trước khi merge)." >&2
+  (
+    cd "$repo_root/source"
+    exec "$php_bin" "$@"
+  )
+}
+
 ensure_not_symlink() {
   local abs_path="$1"
 
@@ -82,22 +109,42 @@ route_path_arg() {
 case "$command_name" in
   lint)
     file="$(source_php_file)"
-    container_exec php -l "$file"
+    if [ "${AI_FORCE_DOCKER:-0}" != "1" ] && runner_local_enabled; then
+      host_exec -l "$file"
+    else
+      container_exec php -l "$file"
+    fi
     ;;
   pint)
     file="$(source_php_file)"
-    container_exec vendor/bin/pint "$file"
+    if [ "${AI_FORCE_DOCKER:-0}" != "1" ] && runner_local_enabled; then
+      host_exec vendor/bin/pint "$file"
+    else
+      container_exec vendor/bin/pint "$file"
+    fi
     ;;
   pint-check)
     file="$(source_php_file)"
-    container_exec vendor/bin/pint --test "$file"
+    if [ "${AI_FORCE_DOCKER:-0}" != "1" ] && runner_local_enabled; then
+      host_exec vendor/bin/pint --test "$file"
+    else
+      container_exec vendor/bin/pint --test "$file"
+    fi
     ;;
   test)
     test_file="$(test_php_file)"
-    container_exec vendor/bin/phpunit --do-not-cache-result "$test_file"
+    if [ "${AI_FORCE_DOCKER:-0}" != "1" ] && runner_local_enabled; then
+      host_exec vendor/bin/phpunit --do-not-cache-result "$test_file"
+    else
+      container_exec vendor/bin/phpunit --do-not-cache-result "$test_file"
+    fi
     ;;
   php-version)
-    container_exec php -v
+    if [ "${AI_FORCE_DOCKER:-0}" != "1" ] && runner_local_enabled; then
+      host_exec -v
+    else
+      container_exec php -v
+    fi
     ;;
   route-list)
     path_arg="$(route_path_arg)"

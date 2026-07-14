@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.9.0] - 2026-07-14
+
+### Added
+- Tính năng Local runner mode (opt-in) qua file `.claude/runner.local` để chạy PHP lint/pint/test siêu tốc trên máy host thay vì Docker.
+- Hỗ trợ Hybrid execution: các thao tác nhẹ chạy local, còn artisan và DB vẫn giao phó cho Docker.
+- Docs: Hướng dẫn setup và chi tiết policy version cho môi trường local (`SETUP-LOCAL.md`).
+- Makefile: Thêm target `ai-check-docker` và `ai-test-docker` để verify cuối cùng trước khi merge.
+
 ## [1.8.0] - 2026-07-14
 
 ### Added

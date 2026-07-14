@@ -56,8 +56,8 @@ is_safe_makefile_ai_command() {
   route_path='[A-Za-z0-9_./:{}-]+'
 
   printf '%s' "$COMMAND" | grep -Eq '^make[[:space:]]+-f[[:space:]]+Makefile\.ai[[:space:]]+(ai-php-version|ai-migrate-status|ai-about|ai-event-list|ai-route-list)$' ||
-    printf '%s' "$COMMAND" | grep -Eq '^AI_FILE='"$file_path"'[[:space:]]+make[[:space:]]+-f[[:space:]]+Makefile\.ai[[:space:]]+(ai-lint|ai-pint|ai-pint-check|ai-check)$' ||
-    printf '%s' "$COMMAND" | grep -Eq '^AI_TEST='"$test_path"'[[:space:]]+make[[:space:]]+-f[[:space:]]+Makefile\.ai[[:space:]]+ai-test$' ||
+    printf '%s' "$COMMAND" | grep -Eq '^AI_FILE='"$file_path"'[[:space:]]+make[[:space:]]+-f[[:space:]]+Makefile\.ai[[:space:]]+(ai-lint|ai-pint|ai-pint-check|ai-check|ai-check-docker)$' ||
+    printf '%s' "$COMMAND" | grep -Eq '^AI_TEST='"$test_path"'[[:space:]]+make[[:space:]]+-f[[:space:]]+Makefile\.ai[[:space:]]+(ai-test|ai-test-docker)$' ||
     printf '%s' "$COMMAND" | grep -Eq '^AI_ROUTE_PATH='"$route_path"'[[:space:]]+make[[:space:]]+-f[[:space:]]+Makefile\.ai[[:space:]]+ai-route-list$'
 }
 

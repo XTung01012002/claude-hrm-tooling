@@ -24,6 +24,19 @@ container_up() {
   ( cd "$REPO_ROOT/docker/local" 2>/dev/null && docker compose exec -T hrm-api true >/dev/null 2>&1 )
 }
 
+runner_ready() {
+  local conf_file="$REPO_ROOT/.claude/runner.local"
+  [ -f "$conf_file" ] || return 1
+  local content
+  content="$(cat "$conf_file")"
+  if [ -n "$content" ]; then
+    [ -x "$content" ] || return 1
+  else
+    command -v php >/dev/null 2>&1 || return 1
+  fi
+  return 0
+}
+
 # --- Normalize path: absolute → relative to REPO_ROOT ---
 normalize_to_rel() {
   local f="$1"
@@ -128,8 +141,8 @@ if ! has_make_target; then
   exit 0
 fi
 
-if ! container_up; then
-  echo "[format-dirty] ⚠️ Container hrm-api không chạy — bỏ qua lint/format. Bật Docker rồi chạy tay." >&2
+if ! runner_ready && ! container_up; then
+  echo "[format-dirty] ⚠️ Container hrm-api không chạy và chưa cấu hình runner local — bỏ qua lint/format. Bật Docker hoặc tạo .claude/runner.local rồi chạy tay." >&2
   exit 0
 fi
 

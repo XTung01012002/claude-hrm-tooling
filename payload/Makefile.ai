@@ -13,9 +13,9 @@ export AI_FILE
 export AI_TEST
 export AI_ROUTE_PATH
 
-.PHONY: ai-lint ai-pint ai-pint-check ai-check ai-test \
-	ai-php-version ai-route-list ai-migrate-status ai-about ai-event-list \
-	ai-artisan-safe ai-artisan-unsafe
+.PHONY: ai-lint ai-pint ai-pint-check ai-check ai-check-docker ai-test ai-test-docker \
+        ai-php-version ai-route-list ai-migrate-status ai-about ai-event-list \
+        ai-artisan-safe ai-artisan-unsafe
 
 # --- Core targets ---
 ai-lint:
@@ -26,6 +26,13 @@ ai-pint:
 
 ai-pint-check:
 	@./.claude/scripts/ai-docker.sh pint-check
+
+ai-check-docker:
+	@AI_FORCE_DOCKER=1 ./.claude/scripts/ai-docker.sh lint
+	@AI_FORCE_DOCKER=1 ./.claude/scripts/ai-docker.sh pint
+
+ai-test-docker:
+	@AI_FORCE_DOCKER=1 ./.claude/scripts/ai-docker.sh test
 
 ai-check: ai-lint ai-pint
 

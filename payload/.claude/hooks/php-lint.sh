@@ -91,6 +91,19 @@ container_up() {
   ( cd "$REPO_ROOT/docker/local" 2>/dev/null && docker compose exec -T hrm-api true >/dev/null 2>&1 )
 }
 
+runner_ready() {
+  local conf_file="$REPO_ROOT/.claude/runner.local"
+  [ -f "$conf_file" ] || return 1
+  local content
+  content="$(cat "$conf_file")"
+  if [ -n "$content" ]; then
+    [ -x "$content" ] || return 1
+  else
+    command -v php >/dev/null 2>&1 || return 1
+  fi
+  return 0
+}
+
 # Kiểm tra Docker — KHÔNG fallback sang host
 if ! has_make_target; then
   echo "[php-lint hook] ⚠️ Makefile.ai không tồn tại — bỏ qua lint/format." >&2
@@ -100,9 +113,9 @@ if ! has_make_target; then
   exit 0
 fi
 
-if ! container_up; then
-  echo "[php-lint hook] ⚠️ Container hrm-api không chạy — bỏ qua lint/format." >&2
-  echo "Bật Docker rồi chạy tay cho các file sau:" >&2
+if ! runner_ready && ! container_up; then
+  echo "[php-lint hook] ⚠️ Container hrm-api không chạy và chưa cấu hình runner local — bỏ qua lint/format." >&2
+  echo "Bật Docker hoặc tạo .claude/runner.local rồi chạy tay cho các file sau:" >&2
   printf '%s\n' "$lint_files" | sed 's/^/  - /' >&2
   exit 0
 fi
