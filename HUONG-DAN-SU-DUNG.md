@@ -11,7 +11,8 @@ Triết lý: (1) AI tự bám convention ngay từ đầu (đỡ review sửa nh
 | Thành phần | Đường dẫn | Vai trò |
 |---|---|---|
 | **Nguồn chân lý** | `docs/ai/PROJECT-CONVENTIONS.md` | Toàn bộ rule (§0 cấm bịa, §1 reuse+DRY, §2 layering, §4 ORM, §8 multi-tenancy, §9 transaction/webhook, §10 list, §11 giữ behavior). Dùng cho MỌI AI. |
-| **Prompt tái dùng** | `docs/ai/prompts/*.md` (13+ file) | Logic cho review / review-vs-plan / implement / test / api-docs / code-docs / diff-review / verify / refactor / feature / commit / reuse / task-breakdown |
+| **Prompt tái dùng** | `docs/ai/prompts/*.md` (12 file) | Logic cho review / review-vs-plan / implement / test / api-docs / code-docs / diff-review / verify / refactor / feature / commit / reuse / task-breakdown |
+| **Model-invoked Skills** | `skills/` | Tầng skill tự kích hoạt: diagnosing-bugs, grilling, hrm-quality-gate, find-reuse-candidates, writing-hrm-skills |
 | **Claude Code** | `CLAUDE.md` · `.claude/commands/*` · `.claude/hooks/*` + `.claude/settings.json` + `settings.local.json` | rule + lệnh + hook |
 | **Codex** | `AGENTS.md` · `~/.codex/prompts/*` · `.codex/hooks.json` | rule + lệnh + hook |
 | **Antigravity** | `AGENTS.md` · `.agents/workflows/*` · `.agents/hooks.json` | rule + lệnh + hook |
@@ -70,7 +71,7 @@ cd claude-hrm-tooling
 
 ### 3) Verify nhanh
 - Hỏi (không đính kèm file): *"feature mẫu chuẩn của dự án là gì?"* → phải trả lời `SaveZaloAccountStaff`.
-- Gõ `/` xem có `review`/`review-vs-plan`/`implement`/`scaffold-test`/`api-docs`/`code-docs`/`diff-review`/`verify`/`refactor`/`commit-message`/`scaffold-feature`/`find-reuse`/`task-breakdown` không (13+ lệnh).
+- Gõ `/` xem có `review`/`review-vs-plan`/`implement`/`scaffold-test`/`api-docs`/`code-docs`/`diff-review`/`verify`/`refactor`/`commit-message`/`scaffold-feature`/`find-reuse`/`task-breakdown`/`debug`/`grill` không (15+ lệnh).
 - (Claude/Codex) sửa thử 1 file `.php` format xấu → kiểm tra có tự `pint` không.
 
 ---

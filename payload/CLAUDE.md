@@ -3,7 +3,7 @@
 **Nguồn chân lý (đọc & tuân thủ trước khi code/review/viết docs):** [`docs/ai/PROJECT-CONVENTIONS.md`](docs/ai/PROJECT-CONVENTIONS.md).
 File này chỉ tóm tắt; chi tiết + lý do nằm ở đó.
 
-## 3 rule cốt lõi
+## 4 rule cốt lõi
 0. **Đồng nhất domain:** Trước khi đặt tên biến, class hoặc mô tả nghiệp vụ, đọc `docs/ai/CONTEXT.md`.
 1. **Bám sát code thật — KHÔNG bịa.** Đọc/`grep` xác nhận class/method/field/route tồn tại trước khi dùng; không chắc thì tra cứu, không đoán. (PROJECT-CONVENTIONS §0)
 2. **Reuse-first + DRY.** Tìm interface ở `Core/.../Shared/` và repo/util hiện có để tái dùng trước khi tạo mới; lặp cùng logic ≥2 nơi → tách về `Shared/`/`Helper`/Trait, đừng copy. Khuôn mẫu: `source/src/Core/Components/OmnichannelChat/SaveZaloAccountStaff/`. (§1)

@@ -19,7 +19,24 @@ Triển khai yêu cầu theo workspace baseline + quy trình 10 bước.
 ### Cách chọn mode
 
 - User ghi rõ: `/implement AUTO ...`, `/implement STRICT ...`, `/implement PLAN_ONLY ...` → dùng mode đó.
-- User không ghi mode → mặc định **AUTO_WITH_ESCALATION**: bắt đầu bằng AUTO, nhưng **tự động nâng lên STRICT** nếu phát hiện bất kỳ điều kiện nào được nêu trong `references/escalation-triggers.md`.
+- User không ghi mode → mặc định **AUTO_WITH_ESCALATION**: bắt đầu bằng AUTO, nhưng **tự động nâng lên STRICT** nếu phát hiện bất kỳ điều kiện nào sau:
+
+```text
+Điều kiện tự động nâng STRICT:
+1.  Migration hoặc thay đổi schema
+2.  Thay đổi API contract (request/response shape)
+3.  Thay đổi public interface
+4.  Thay đổi authorization hoặc permission
+5.  Liên quan thanh toán, tính tiền hoặc dữ liệu nhạy cảm
+6.  Queue, webhook, retry hoặc idempotency
+7.  Transaction nhiều bảng
+8.  Xóa hoặc cập nhật dữ liệu hàng loạt
+9.  Thay đổi từ 5 file trở lên
+10. Có giả định nghiệp vụ chưa được xác minh
+11. Có từ 2 phương án triển khai khác nhau đáng kể
+12. Có nguy cơ backward compatibility
+13. AI không tìm được test hoặc code liên quan
+```
 
 Ở đầu output, nêu rõ: `Mode: AUTO` hoặc `Mode: STRICT (escalated — lý do: ...)`.
 
@@ -74,7 +91,12 @@ Liệt kê ít nhất 3 acceptance criteria (AC) dạng Given-When-Then:
 - <mỗi BusinessException / validation fail / external API fail>
 
 ### Edge cases
-Tham khảo checklist edge cases tại `references/edge-cases.md`.
+- Null/empty input → hành vi gì?
+- Duplicate request → idempotent hay lỗi?
+- Race condition → cần lock?
+- Webhook event trễ/lặp → downgrade status?
+- Dữ liệu legacy/cũ → tương thích?
+- Timezone → UTC hay local?
 ```
 
 ### Bước 5: Nêu giả định và Áp dụng Grilling (nếu cần)
@@ -165,4 +187,4 @@ AI_TEST=tests/Unit/YTest.php make -f Makefile.ai ai-test
 ---
 
 ## Format xuất kết quả cuối
-Xem định dạng chi tiết tại `references/implement-format.md`. Mọi response kết luận PHẦI dùng format đó.
+Xem định dạng chi tiết tại `docs/ai/prompts/references/implement-format.md`. Mọi response kết luận PHẢI dùng format đó.

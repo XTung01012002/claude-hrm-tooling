@@ -5,7 +5,7 @@ description: Đảm bảo chất lượng code sau khi sửa. Dùng ngay sau khi
 
 # HRM Quality Gate (Kiểm tra chất lượng bắt buộc)
 
-Đây là kỷ luật tự giác bắt buộc sau mỗi lần bạn sửa đổi hoặc tạo mới file PHP. Hệ thống không có hook tự động cho AI, nên bạn phải TỰ chạy các lệnh này trước khi báo cáo kết quả cho user.
+Đây là kỷ luật tự giác bắt buộc sau mỗi lần bạn sửa đổi hoặc tạo mới file PHP. Bạn **phải** là người chủ động thực hiện việc này vì hook có thể không bao phủ mọi agent/tool, nên vẫn phải tự chạy. Đừng để code lỗi syntax hoặc chưa pass format trước khi báo cáo kết quả cho user.
 
 ## Các bước bắt buộc
 

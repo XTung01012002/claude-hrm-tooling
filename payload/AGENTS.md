@@ -3,7 +3,7 @@
 > Quy ước cho **mọi AI / agentic IDE** (Antigravity, Cursor, Claude Code…). Đặt ở **project root** nên các công cụ này tự nạp mỗi phiên.
 > **Nguồn chân lý đầy đủ:** [`docs/ai/PROJECT-CONVENTIONS.md`](docs/ai/PROJECT-CONVENTIONS.md) — LUÔN đọc & tuân thủ file đó.
 
-## 3 rule cốt lõi
+## 4 rule cốt lõi
 0. **Đồng nhất domain:** Trước khi đặt tên biến, class hoặc mô tả nghiệp vụ, đọc `docs/ai/CONTEXT.md`.
 1. **Bám sát code thật — KHÔNG bịa.** Đọc/`grep` xác nhận class/method/field/route tồn tại trước khi dùng; không chắc thì tra cứu, không đoán.
 2. **Reuse-first + DRY.** Tìm interface ở `Core/.../Shared/` + repo/util có sẵn trước khi tạo mới; lặp cùng logic ≥2 nơi → tách về `Shared/`/`Helper`/Trait, đừng copy. Khuôn mẫu: `source/src/Core/Components/OmnichannelChat/SaveZaloAccountStaff/`.

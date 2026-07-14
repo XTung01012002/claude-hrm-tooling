@@ -163,7 +163,7 @@ Không đề xuất tính năng mới trong verdict. Ý tưởng cải tiến đ
 
 ## 7. Output bắt buộc
 
-Tham khảo định dạng xuất kết quả chi tiết tại `references/review-format.md`. Bạn BẮT BUỘC phải dùng định dạng này cho mọi review kết luận.
+Tham khảo định dạng xuất kết quả chi tiết tại `docs/ai/prompts/references/review-format.md`. Bạn BẮT BUỘC phải dùng định dạng này cho mọi review kết luận.
 
 ## 8. Các điều cấm
 
