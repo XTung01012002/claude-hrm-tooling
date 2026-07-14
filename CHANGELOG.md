@@ -10,6 +10,29 @@ All notable changes to this project will be documented in this file.
 - Tách references cho implement và review để áp dụng progressive disclosure.
 - Bổ sung lệnh /debug và /grill.
 
+## [1.7.2] - 2026-07-13
+
+### Fixed
+- Sửa lỗi crash `session-start.sh` khi `TOUCHED_FILES` unbound, đồng thời dọn sạch snapshot xử lý cũ và khôi phục các validation chống path traversal/symlink escape.
+- Tối ưu `run-related-tests.sh` fallback: sử dụng marker `session-had-edits` thay vì hạ cấp mù quáng xuống advisory, chặn việc chạy test thừa thãi trên các thay đổi không do AI tạo ra trong phiên.
+- Sửa `block-host-tools.sh` bắt sót edge case khi tool được gọi qua command substitution với trailing backtick.
+
+## [1.7.1] - 2026-07-13
+
+### Fixed
+- Chuẩn hóa `/verify` theo file scope/base range/staged/untracked; nếu chỉ có attachment mà thiếu diff/base thì trả `BLOCKED_INSUFFICIENT_CONTEXT`.
+- Làm verdict contract bất giao nhau và bắt buộc `Merge blocking: Yes | No` cho finding BLOCKER/IMPORTANT.
+- Cho `apply_patch` đi qua Pint + lint lại giống các đường sửa file khác.
+- Stop hook capture output test qua stderr, phát hiện deleted related tests và tránh stdout làm hỏng protocol hook.
+- SessionStart cleanup `.claude/tmp` an toàn hơn với symlink.
+- Host-PHP guard bắt thêm assignment/env/exec/nohup/php8.x và giảm false positive khi chỉ in chuỗi Makefile.ai.
+
+### Changed
+- `/commit-message` đọc thêm untracked files liên quan.
+- `generate-api-docs` siết response envelope và sửa bảng Markdown request.
+- `generate-code-docs` yêu cầu bằng chứng code/test cho phần giải thích "vì sao".
+- Thêm `ai_workflows_reference.md` vào payload managed paths.
+
 ## [1.7.0] - 2026-07-13
 
 ### Added

@@ -595,8 +595,12 @@ test_strict_fails_when_git_index_is_corrupt() {
   printf '<?php\n' > "$project/source/src/Foo.php"
   git -C "$project" init -q
   printf 'not a git index\n' > "$project/.git/index"
+<<<<<<< ours
   mkdir -p "$project/.claude/tmp"
   touch "$project/.claude/tmp/session-had-edits"
+=======
+  mkdir -p "$project/.claude/tmp" && touch "$project/.claude/tmp/session-had-edits"
+>>>>>>> theirs
 
   set +e
   (
@@ -624,6 +628,7 @@ test_strict_flags_deleted_php_file() {
   mkdir -p "$project/.claude/tmp"
   touch "$project/.claude/tmp/session-had-edits"
   rm "$project/source/src/DeleteMe.php"
+  mkdir -p "$project/.claude/tmp" && touch "$project/.claude/tmp/session-had-edits"
 
   set +e
   (
@@ -651,6 +656,7 @@ test_strict_flags_renamed_php_file() {
   mkdir -p "$project/.claude/tmp"
   touch "$project/.claude/tmp/session-had-edits"
   mv "$project/source/src/OldName.php" "$project/source/src/NewName.php"
+  mkdir -p "$project/.claude/tmp" && touch "$project/.claude/tmp/session-had-edits"
 
   set +e
   (
@@ -678,6 +684,7 @@ test_strict_fails_without_touched_manifest_for_dirty_php() {
   mkdir -p "$project/.claude/tmp"
   touch "$project/.claude/tmp/session-had-edits"
   printf '<?php\n// dirty\n' > "$project/source/src/Foo.php"
+  mkdir -p "$project/.claude/tmp" && touch "$project/.claude/tmp/session-had-edits"
 
   set +e
   (
@@ -688,6 +695,31 @@ test_strict_fails_without_touched_manifest_for_dirty_php() {
   set -e
 
   [ "$status" -eq 2 ] && grep -q 'thiếu touched manifest' "$OUT"
+}
+
+test_strict_exits_0_without_marker_for_dirty_php() {
+  local project="$TMP_DIR/no-marker-dirty-php"
+  local status
+
+  mkdir -p "$project/.claude/hooks" "$project/source/src"
+  mkdir -p "$project/.claude/scripts" && cp "$ROOT/payload/.claude/scripts/validate-tooling-tmp.sh" "$project/.claude/scripts/validate-tooling-tmp.sh" && chmod +x "$project/.claude/scripts/validate-tooling-tmp.sh"
+  cp "$ROOT/payload/.claude/hooks/run-related-tests.sh" "$project/.claude/hooks/run-related-tests.sh"
+  chmod +x "$project/.claude/hooks/run-related-tests.sh"
+  printf '<?php\n' > "$project/source/src/Foo.php"
+  git -C "$project" init -q
+  git -C "$project" -c user.email=test@example.com -c user.name=Test add source/src/Foo.php
+  git -C "$project" -c user.email=test@example.com -c user.name=Test commit -q -m init
+  printf '<?php\n// dirty\n' > "$project/source/src/Foo.php"
+
+  set +e
+  (
+    cd "$project"
+    AI_TEST_MODE=strict .claude/hooks/run-related-tests.sh <<< '{}'
+  ) >"$OUT" 2>&1
+  status=$?
+  set -e
+
+  [ "$status" -eq 0 ] && grep -q 'ngoài phiên AI' "$OUT"
 }
 
 test_install_creates_precise_backup_and_excludes_bak_suffixes() {
@@ -816,7 +848,7 @@ JSON
   count="$(jq '[.. | objects | select(((.command? // "") | contains(".claude/hooks/run-related-tests.sh")))] | length' "$settings")"
   timeout="$(jq -r '.. | objects | select(((.command? // "") | contains(".claude/hooks/run-related-tests.sh"))) | .timeout' "$settings")"
 
-  [ "$count" -eq 1 ] && [ "$timeout" = "180" ]
+  [ "$count" -eq 1 ] && [ "$timeout" = "300" ]
 }
 
 test_install_backs_up_legacy_agent_directory() {
@@ -1744,6 +1776,7 @@ run_test "stop rejects symlinked tmp directory" test_stop_rejects_symlinked_tmp_
 run_test "stop rejects symlinked lock directory" test_stop_rejects_symlinked_lock_directory
 run_test "record touched rejects claude directory symlink" test_record_touched_rejects_claude_directory_symlink
 run_test "manifest created with restricted permissions" test_manifest_created_with_restricted_permissions
+run_test "strict hook exits 0 without marker for dirty php" test_strict_exits_0_without_marker_for_dirty_php
 
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s test(s) failed\n' "$FAILURES" >&2

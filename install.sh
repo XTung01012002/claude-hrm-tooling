@@ -406,9 +406,10 @@ if [ -d "$TARGET/.git" ] || [ -f "$TARGET/.git" ]; then
       *) EXCLUDE="$TARGET/$EXCLUDE" ;;
     esac
     mkdir -p "$(dirname "$EXCLUDE")"
-    for p in CLAUDE.md AGENTS.md .claude/ .codex/ docs/ai/ Makefile.ai '*.bak' '*.bak.*' '.claude/tooling-backups/' 'skills/' '.agents/hooks.json' '.agents/workflows/' '.agents/skills'; do
+    for p in CLAUDE.md AGENTS.md .claude/ .codex/ docs/ai/ ai_workflows_reference.md Makefile.ai '*.bak' '*.bak.*' '.claude/tooling-backups/' 'skills/' '.agents/hooks.json' '.agents/workflows/' '.agents/skills'; do
       grep -qxF "$p" "$EXCLUDE" 2>/dev/null || printf '%s\n' "$p" >> "$EXCLUDE"
     done
+    sed -i.bak '/^\.agent\/$/d' "$EXCLUDE" 2>/dev/null && rm -f "$EXCLUDE.bak"
     echo "  + da them file AI vao $EXCLUDE (giu ngoai git team)"
   fi
 fi
