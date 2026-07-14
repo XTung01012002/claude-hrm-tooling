@@ -6,9 +6,10 @@ Bộ AI tooling cá nhân cho **HRM API**, tách khỏi repo code team. Đồng 
 
 ## Nội dung (`payload/` — mirror cấu trúc project; `install.sh` copy hết)
 - `CLAUDE.md` (Claude) · `AGENTS.md` (Antigravity/Codex/Cursor) — pointer rule, trỏ về `docs/ai/PROJECT-CONVENTIONS.md`.
-- `docs/ai/PROJECT-CONVENTIONS.md` + `docs/ai/prompts/*.md` — nguồn chân lý trung lập (13+ prompt: review, review-vs-plan, implement, scaffold-test, api-docs, code-docs, diff-review, verify, refactor, commit-message, find-reuse, scaffold-feature, task-breakdown).
-- `.claude/commands/*.md` + `.claude/hooks/*.sh` + `.claude/scripts/*.sh` — 13+ slash commands + hook lint/format/test + wrapper Docker an toàn (Claude).
-- `.agents/workflows/*.md` + `.agents/hooks.json` — 13+ workflows + hooks (Antigravity).
+- `docs/ai/PROJECT-CONVENTIONS.md` + `docs/ai/prompts/*.md` — nguồn chân lý trung lập (15+ prompt: review, review-vs-plan, implement, scaffold-test, api-docs, code-docs, diff-review, verify, refactor, commit-message, find-reuse, scaffold-feature, task-breakdown, debug, grill).
+- `.claude/commands/*.md` + `.claude/hooks/*.sh` + `.claude/scripts/*.sh` — 15+ slash commands + hook lint/format/test + wrapper Docker an toàn (Claude).
+- `.agents/workflows/*.md` + `.agents/hooks.json` — 15+ workflows + hooks (Antigravity).
+- `skills/` — tầng model-invoked skills tự kích hoạt (diagnosing-bugs, grilling, hrm-quality-gate, find-reuse-candidates).
 - `.codex/hooks.json` — hooks (Codex); prompts cài vào `~/.codex/prompts` qua `install.sh`.
 
 ## Đẩy lên remote private (lần đầu)

@@ -14,6 +14,7 @@
 
 **Đây là quy tắc số 1, đứng trên mọi quy tắc khác.**
 
+- Trước khi đặt tên biến, class hoặc mô tả nghiệp vụ: **đọc `docs/ai/CONTEXT.md`** để đồng nhất ngôn ngữ domain HRM.
 - Trước khi viết/sửa/ghi docs: **đọc file liên quan** và `grep` để xác nhận tên class / method / field / route / enum **thực sự tồn tại**.
 - Chỉ dùng interface / method / field **có thật** trong codebase. Không chắc → tra cứu, **không đoán**.
 - **Không bịa**: không bịa field response, không bịa rule validate, không bịa endpoint, không bịa giá trị enum.

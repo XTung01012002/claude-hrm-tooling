@@ -4,6 +4,7 @@
 File này chỉ tóm tắt; chi tiết + lý do nằm ở đó.
 
 ## 3 rule cốt lõi
+0. **Đồng nhất domain:** Trước khi đặt tên biến, class hoặc mô tả nghiệp vụ, đọc `docs/ai/CONTEXT.md`.
 1. **Bám sát code thật — KHÔNG bịa.** Đọc/`grep` xác nhận class/method/field/route tồn tại trước khi dùng; không chắc thì tra cứu, không đoán. (PROJECT-CONVENTIONS §0)
 2. **Reuse-first + DRY.** Tìm interface ở `Core/.../Shared/` và repo/util hiện có để tái dùng trước khi tạo mới; lặp cùng logic ≥2 nơi → tách về `Shared/`/`Helper`/Trait, đừng copy. Khuôn mẫu: `source/src/Core/Components/OmnichannelChat/SaveZaloAccountStaff/`. (§1)
 3. **Repo code mới ưu tiên Eloquent ORM** (tránh `DB::table()`/raw cho ghi; legacy query-builder là ngoại lệ). (§4)
@@ -35,3 +36,5 @@ File này chỉ tóm tắt; chi tiết + lý do nằm ở đó.
 - `/refactor` → review/refactor code giữ behavior, có mức độ 🔴🟡🟢 (`docs/ai/prompts/refactor.md`).
 - `/find-reuse` → tìm logic/interface có thể tái sử dụng trước khi tạo mới (`docs/ai/prompts/find-reuse.md`).
 - `/task-breakdown` → Task breakdown: `.agents/skills/task-breakdown/SKILL.md`
+- `/debug` → Chẩn đoán bug qua 6 bước (Dựng test đỏ, Thu nhỏ, Giả thuyết, Instrument, Fix, Dọn dẹp) (`.claude/commands/debug.md`).
+- `/grill` → Phỏng vấn từng câu một kèm đề xuất trước khi implement (`.claude/commands/grill.md`).

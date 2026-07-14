@@ -19,24 +19,7 @@ Triển khai yêu cầu theo workspace baseline + quy trình 10 bước.
 ### Cách chọn mode
 
 - User ghi rõ: `/implement AUTO ...`, `/implement STRICT ...`, `/implement PLAN_ONLY ...` → dùng mode đó.
-- User không ghi mode → mặc định **AUTO_WITH_ESCALATION**: bắt đầu bằng AUTO, nhưng **tự động nâng lên STRICT** nếu phát hiện bất kỳ điều kiện nào sau:
-
-```text
-Điều kiện tự động nâng STRICT:
-1.  Migration hoặc thay đổi schema
-2.  Thay đổi API contract (request/response shape)
-3.  Thay đổi public interface
-4.  Thay đổi authorization hoặc permission
-5.  Liên quan thanh toán, tính tiền hoặc dữ liệu nhạy cảm
-6.  Queue, webhook, retry hoặc idempotency
-7.  Transaction nhiều bảng
-8.  Xóa hoặc cập nhật dữ liệu hàng loạt
-9.  Thay đổi từ 5 file trở lên
-10. Có giả định nghiệp vụ chưa được xác minh
-11. Có từ 2 phương án triển khai khác nhau đáng kể
-12. Có nguy cơ backward compatibility
-13. AI không tìm được test hoặc code liên quan
-```
+- User không ghi mode → mặc định **AUTO_WITH_ESCALATION**: bắt đầu bằng AUTO, nhưng **tự động nâng lên STRICT** nếu phát hiện bất kỳ điều kiện nào được nêu trong `references/escalation-triggers.md`.
 
 Ở đầu output, nêu rõ: `Mode: AUTO` hoặc `Mode: STRICT (escalated — lý do: ...)`.
 
@@ -91,23 +74,14 @@ Liệt kê ít nhất 3 acceptance criteria (AC) dạng Given-When-Then:
 - <mỗi BusinessException / validation fail / external API fail>
 
 ### Edge cases
-- Null/empty input → hành vi gì?
-- Duplicate request → idempotent hay lỗi?
-- Race condition → cần lock?
-- Webhook event trễ/lặp → downgrade status?
-- Dữ liệu legacy/cũ → tương thích?
-- Timezone → UTC hay local?
+Tham khảo checklist edge cases tại `references/edge-cases.md`.
 ```
 
-### Bước 5: Nêu giả định chưa xác minh
+### Bước 5: Nêu giả định và Áp dụng Grilling (nếu cần)
 
-```
-## Giả định (CẦN XÁC NHẬN)
-- [ ] <giả định 1 — ảnh hưởng gì nếu sai>
-- [ ] <giả định 2>
-```
-
-Nếu có giả định quan trọng (ảnh hưởng schema, API contract, behavior) → **HỎI user trước khi code** (§11).
+Nếu bạn có các giả định làm thay đổi behavior, schema, API contract, security, hoặc luồng nghiệp vụ chưa rõ ràng, **BẮT BUỘC** dừng việc xuất danh sách kế hoạch lại.
+Thay vào đó, hãy áp dụng kỹ năng `grilling` (Phỏng vấn từng câu một kèm đề xuất).
+Hỏi người dùng câu hỏi quan trọng nhất trước, kèm theo đề nghị của bạn, và chờ họ phản hồi. Không đi tiếp đến Bước 6 cho tới khi đã đạt được shared understanding.
 
 ### Bước 6: Liệt kê file dự kiến thay đổi
 
@@ -191,32 +165,4 @@ AI_TEST=tests/Unit/YTest.php make -f Makefile.ai ai-test
 ---
 
 ## Format xuất kết quả cuối
-
-```markdown
-## Tóm tắt thay đổi
-- <mô tả ngắn>
-
-## Files đã thay đổi
-| File | Hành động |
-|---|---|
-| ... | Tạo mới / Sửa |
-
-## Acceptance Criteria — Kết quả
-- AC1: ✅ / ❌
-- AC2: ✅ / ❌
-
-## Quality Gate
-- Lint: ✅ / ❌
-- Pint: ✅ / ❌
-- Test: ✅ / ❌ (<n> passed, <m> failed)
-
-## Workspace audit
-- Baseline đã ghi nhận: ✅ / ❌
-- Final diff audit: ✅ / ❌
-- Scope creep: Không / Có (<mô tả>)
-
-## Lưu ý
-- <behavior giữ nguyên>
-- <rủi ro cần test thêm>
-- <tài liệu cần cập nhật>
-```
+Xem định dạng chi tiết tại `references/implement-format.md`. Mọi response kết luận PHẦI dùng format đó.

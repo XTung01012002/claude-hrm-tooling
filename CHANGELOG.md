@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.0] - 2026-07-14
+
+### Added
+- Thêm kiến trúc model-invoked skills (diagnosing-bugs, grilling, hrm-quality-gate, find-reuse-candidates).
+- Thêm CONTEXT.md để đồng nhất từ điển domain HRM.
+- Tách references cho implement và review để áp dụng progressive disclosure.
+- Bổ sung lệnh /debug và /grill.
+
 ## [1.7.0] - 2026-07-13
 
 ### Added

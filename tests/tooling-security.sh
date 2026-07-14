@@ -595,6 +595,8 @@ test_strict_fails_when_git_index_is_corrupt() {
   printf '<?php\n' > "$project/source/src/Foo.php"
   git -C "$project" init -q
   printf 'not a git index\n' > "$project/.git/index"
+  mkdir -p "$project/.claude/tmp"
+  touch "$project/.claude/tmp/session-had-edits"
 
   set +e
   (
@@ -619,6 +621,8 @@ test_strict_flags_deleted_php_file() {
   git -C "$project" init -q
   git -C "$project" -c user.email=test@example.com -c user.name=Test add source/src/DeleteMe.php
   git -C "$project" -c user.email=test@example.com -c user.name=Test commit -q -m init
+  mkdir -p "$project/.claude/tmp"
+  touch "$project/.claude/tmp/session-had-edits"
   rm "$project/source/src/DeleteMe.php"
 
   set +e
@@ -644,6 +648,8 @@ test_strict_flags_renamed_php_file() {
   git -C "$project" init -q
   git -C "$project" -c user.email=test@example.com -c user.name=Test add source/src/OldName.php
   git -C "$project" -c user.email=test@example.com -c user.name=Test commit -q -m init
+  mkdir -p "$project/.claude/tmp"
+  touch "$project/.claude/tmp/session-had-edits"
   mv "$project/source/src/OldName.php" "$project/source/src/NewName.php"
 
   set +e
@@ -669,6 +675,8 @@ test_strict_fails_without_touched_manifest_for_dirty_php() {
   git -C "$project" init -q
   git -C "$project" -c user.email=test@example.com -c user.name=Test add source/src/Foo.php
   git -C "$project" -c user.email=test@example.com -c user.name=Test commit -q -m init
+  mkdir -p "$project/.claude/tmp"
+  touch "$project/.claude/tmp/session-had-edits"
   printf '<?php\n// dirty\n' > "$project/source/src/Foo.php"
 
   set +e

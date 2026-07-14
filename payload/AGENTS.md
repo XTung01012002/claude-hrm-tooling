@@ -4,6 +4,7 @@
 > **Nguồn chân lý đầy đủ:** [`docs/ai/PROJECT-CONVENTIONS.md`](docs/ai/PROJECT-CONVENTIONS.md) — LUÔN đọc & tuân thủ file đó.
 
 ## 3 rule cốt lõi
+0. **Đồng nhất domain:** Trước khi đặt tên biến, class hoặc mô tả nghiệp vụ, đọc `docs/ai/CONTEXT.md`.
 1. **Bám sát code thật — KHÔNG bịa.** Đọc/`grep` xác nhận class/method/field/route tồn tại trước khi dùng; không chắc thì tra cứu, không đoán.
 2. **Reuse-first + DRY.** Tìm interface ở `Core/.../Shared/` + repo/util có sẵn trước khi tạo mới; lặp cùng logic ≥2 nơi → tách về `Shared/`/`Helper`/Trait, đừng copy. Khuôn mẫu: `source/src/Core/Components/OmnichannelChat/SaveZaloAccountStaff/`.
 3. **Repo code mới ưu tiên Eloquent ORM** (tránh `DB::table()`/raw cho ghi; legacy là ngoại lệ).
@@ -33,4 +34,5 @@
 - Sinh feature (`/scaffold-feature`): `docs/ai/prompts/generate-feature.md` · Tự sinh git commit (`/commit-message`): `docs/ai/prompts/commit-message.md` · Tìm reuse (`/find-reuse`): `docs/ai/prompts/find-reuse.md`.
 - Task breakdown: `.agents/skills/task-breakdown/SKILL.md`
 - **Mới:** Triển khai yêu cầu (`/implement`): `docs/ai/prompts/implement-requirement.md` · Adversarial verify (`/verify`): `docs/ai/prompts/adversarial-verify.md` · Review diff + commit (`/diff-review`): `docs/ai/prompts/diff-review.md` · Sinh docs code BE (`/code-docs`): `docs/ai/prompts/generate-code-docs.md`.
+- **Chẩn đoán & Phỏng vấn:** Chẩn đoán bug (`/debug`): `.claude/commands/debug.md` · Phỏng vấn từng câu (`/grill`): `.claude/commands/grill.md`.
 - Docs FE viết vào `api-docs/<Module>/<Endpoint>.md` (contract-only) — KHÁC `docs/` (logic nội bộ BE).
