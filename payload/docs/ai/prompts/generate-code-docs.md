@@ -65,10 +65,11 @@ Controller → Command/Query → ValidationInterface → Handler → Repository
 ```
 
 ## Quyết định nghiệp vụ quan trọng
-- <Decision 1>: <lý do — tại sao chọn cách này>
+- <Decision 1>: <lý do — tại sao chọn cách này; kèm bằng chứng `file:line` từ code/test>
 - <Decision 2>: ...
 
 > Đây là phần quan trọng nhất — developer mới cần hiểu **tại sao** code làm thế, không chỉ **làm gì**.
+> Nếu không tìm thấy bằng chứng trong code/test/comment/commit context được cung cấp, ghi rõ `Chưa kiểm chứng` hoặc bỏ quyết định đó; không tự suy luận ý định từ tên method.
 
 ## Side Effects
 - **Events dispatched**: <tên event + khi nào trigger>

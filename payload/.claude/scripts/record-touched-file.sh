@@ -68,7 +68,7 @@ fi
 PREFIX="${REPO_ROOT%/}/"
 case "$ABS" in
   "$PREFIX"*) REL="${ABS#$PREFIX}" ;;
-  *) 
+  *)
     printf '[record-touched-file] ⚠️ File %s is outside repository, rejected.\n' "$FILE_PATH" >&2
     exit 2
     ;;
@@ -102,5 +102,7 @@ if ! printf '%s\n' "$REL" >> "$MANIFEST_FILE"; then
 fi
 
 chmod 600 "$MANIFEST_FILE" 2>/dev/null || true
+
+touch "$MANIFEST_DIR/session-had-edits" 2>/dev/null || true
 
 exit 0

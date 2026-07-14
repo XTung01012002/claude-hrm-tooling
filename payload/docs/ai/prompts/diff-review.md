@@ -57,6 +57,13 @@ Input sẽ bao gồm:
 
 Nếu `REQUEST_CHANGES` hoặc `BLOCKED_INSUFFICIENT_CONTEXT`: liệt kê cụ thể phải sửa/bổ sung gì trước khi commit.
 
+Áp dụng verdict theo thứ tự bất giao nhau từ `docs/ai/prompts/_shared/review-contract.md`:
+
+1. `BLOCKED_INSUFFICIENT_CONTEXT` nếu thiếu diff/code/base/test/context để kết luận.
+2. `REQUEST_CHANGES` nếu có ít nhất một finding `Merge blocking: Yes`.
+3. `PASS_WITH_CONCERNS` nếu không có finding chặn merge nhưng còn finding không chặn, thiếu test hoặc rủi ro.
+4. `PASS` nếu không có finding actionable/rủi ro đáng kể và test đủ.
+
 ### Bước 6: Sinh branch name + commit message + PR summary
 
 Không tự định nghĩa verdict mới. Dùng nguyên verdict và Merge blocking rules từ `docs/ai/prompts/review.md`.
@@ -80,9 +87,15 @@ Không tự định nghĩa verdict mới. Dùng nguyên verdict và Merge blocki
 
 #### 🔴 Blocker
 - [file.php:line] <vấn đề> → <cách sửa>
+  - Severity: BLOCKER
+  - Merge blocking: Yes | No
+  - Evidence: <bằng chứng đã verify>
 
 #### 🟡 Important
-- ...
+- [file.php:line] <vấn đề> → <cách sửa>
+  - Severity: IMPORTANT
+  - Merge blocking: Yes | No
+  - Evidence: <bằng chứng đã verify>
 
 #### 🟢 Suggestion
 - ...

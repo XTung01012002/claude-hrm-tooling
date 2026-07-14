@@ -2,6 +2,7 @@
 # Hook format/lint TOOL-AGNOSTIC (Codex / Antigravity / Claude đều dùng được).
 # v1.4.1:
 #   - Ưu tiên file path từ payload (thử nhiều field names).
+#   - Với apply_patch, đọc danh sách file từ patch hunk nếu payload không có target_file.
 #   - Fallback: unstaged + untracked (để bắt file mới tạo), nhưng BỎ staged.
 #   - Sửa path normalization: absolute path không bị ghép sai.
 #   - Bỏ host fallback — Docker down thì skip rõ ràng.
@@ -41,10 +42,28 @@ file_exists() {
   esac
 }
 
+extract_patch_paths() {
+  command -v jq >/dev/null 2>&1 || return 0
+  [ -n "$INPUT" ] || return 0
+
+  printf '%s' "$INPUT" | jq -r '
+    [
+      .tool_input.patch?,
+      .tool_input.Patch?,
+      .tool_args.patch?,
+      .tool_args.Patch?,
+      .tool_input.diff?,
+      .tool_args.diff?
+    ][]
+    | select(type == "string")
+  ' 2>/dev/null | sed -nE 's/^\*\*\* (Add|Update|Delete) File: (.*)$/\2/p'
+}
+
 # --- Thu thập file cần xử lý và ghi nhận ---
 
 # Ưu tiên 1: lấy file từ payload hook (thử nhiều field names khác nhau)
 TARGET_FILE=""
+PATCH_FILES=""
 if command -v jq >/dev/null 2>&1 && [ -n "$INPUT" ]; then
   TARGET_FILE="$(printf '%s' "$INPUT" | jq -r '
     .tool_args.TargetFile //
@@ -58,10 +77,21 @@ if command -v jq >/dev/null 2>&1 && [ -n "$INPUT" ]; then
   if [ -n "$TARGET_FILE" ]; then
     TARGET_FILE="$(normalize_to_rel "$TARGET_FILE")"
   fi
+
+  PATCH_FILES="$(
+    while IFS= read -r patch_file; do
+      [ -z "$patch_file" ] && continue
+      normalize_to_rel "$patch_file"
+      printf '\n'
+    done < <(extract_patch_paths)
+  )"
+  PATCH_FILES="$(printf '%s\n' "$PATCH_FILES" | sed '/^$/d' | sort -u)"
 fi
 
 collect_lint_files() {
-  if [ -n "$TARGET_FILE" ]; then
+  if [ -n "$PATCH_FILES" ]; then
+    printf '%s\n' "$PATCH_FILES"
+  elif [ -n "$TARGET_FILE" ]; then
     printf '%s\n' "$TARGET_FILE"
   else
     # Fallback: unstaged + untracked (BỎ staged)
@@ -76,10 +106,10 @@ collect_lint_files() {
 while IFS= read -r f; do
   [ -z "$f" ] && continue
   case "$f" in *.php) ;; *) continue ;; esac
-  
+
   record_rc=0
   "$REPO_ROOT/.claude/scripts/record-touched-file.sh" "$REPO_ROOT" "$f" || record_rc=$?
-  
+
   case "$record_rc" in
     0|10) ;;
     *)
@@ -88,6 +118,9 @@ while IFS= read -r f; do
       ;;
   esac
 done < <(collect_lint_files)
+
+php_candidates="$(collect_lint_files | sed -n '/\.php$/p' | sort -u)"
+[ -z "$php_candidates" ] && exit 0
 
 # Kiểm tra Docker — KHÔNG fallback sang host
 if ! has_make_target; then
@@ -104,27 +137,40 @@ fi
 
 # --- Lint & Format ---
 
-# Lint các file .php
+# Lint/format các file .php. Chỉ format khi biết file từ payload target hoặc patch.
 fail=0
+format_allowed=0
+if [ -n "$TARGET_FILE" ] || [ -n "$PATCH_FILES" ]; then
+  format_allowed=1
+fi
+
 while IFS= read -r f; do
   [ -z "$f" ] && continue
   case "$f" in *.php) ;; *) continue ;; esac
   file_exists "$f" || continue
+
   if ! OUT="$(AI_FILE="$f" make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-lint 2>&1)"; then
     echo "[format-dirty] make ai-lint FAILED: $f" >&2
     printf '%s\n' "$OUT" >&2
     fail=1
+    continue
   fi
-done < <(collect_lint_files)
 
-# Auto-format: CHỈ khi biết chính xác file AI sửa (có TARGET_FILE)
-# Không có TARGET_FILE → KHÔNG format để tránh sửa file ngoài phạm vi AI
-if [ -n "$TARGET_FILE" ]; then
-  case "$TARGET_FILE" in *.php)
-    file_exists "$TARGET_FILE" && \
-      AI_FILE="$TARGET_FILE" make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-pint >/dev/null 2>&1 || true
-  ;; esac
-fi
+  if [ "$format_allowed" = "1" ]; then
+    if ! PINT_OUT="$(AI_FILE="$f" make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-pint 2>&1)"; then
+      echo "[format-dirty] make ai-pint FAILED: $f" >&2
+      printf '%s\n' "$PINT_OUT" >&2
+      fail=1
+      continue
+    fi
+
+    if ! OUT2="$(AI_FILE="$f" make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-lint 2>&1)"; then
+      echo "[format-dirty] make ai-lint FAILED after Pint: $f" >&2
+      printf '%s\n' "$OUT2" >&2
+      fail=1
+    fi
+  fi
+done < <(printf '%s\n' "$php_candidates")
 
 [ "$fail" = "1" ] && exit 2
 exit 0

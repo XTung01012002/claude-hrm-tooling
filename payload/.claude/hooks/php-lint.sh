@@ -13,48 +13,75 @@ command -v jq >/dev/null 2>&1 || { echo "[php-lint hook] jq không có — bỏ 
 
 INPUT="$(cat)"
 
-# Lấy đường dẫn file với fallback nhiều key (các tool/biến thể đặt tên khác nhau)
-FILE="$(printf '%s' "$INPUT" | jq -r '
-  .tool_args.TargetFile //
-  .tool_input.file_path //
-  .tool_input.target_file //
-  .tool_input.targetFile //
-  empty
-' 2>/dev/null)"
-[ -z "$FILE" ] && exit 0
+candidate_files() {
+  printf '%s' "$INPUT" | jq -r '
+    [
+      .tool_args.TargetFile?,
+      .tool_input.file_path?,
+      .tool_input.target_file?,
+      .tool_input.targetFile?,
+      .tool_input.path?
+    ][]
+    | select(type == "string" and length > 0)
+  ' 2>/dev/null
 
-# Chỉ xử lý .php
-case "$FILE" in
-  *.php) ;;
-  *) exit 0 ;;
-esac
-
-# Chuẩn hóa về absolute path từ repo root (path có thể tương đối kiểu source/src/...).
-case "$FILE" in
-  /*) ABS="$FILE" ;;
-  *)  ABS="$REPO_ROOT/$FILE" ;;
-esac
-[ -f "$ABS" ] || exit 0
+  printf '%s' "$INPUT" | jq -r '
+    [
+      .tool_input.patch?,
+      .tool_input.Patch?,
+      .tool_args.patch?,
+      .tool_args.Patch?,
+      .tool_input.diff?,
+      .tool_args.diff?
+    ][]
+    | select(type == "string")
+  ' 2>/dev/null | sed -nE 's/^\*\*\* (Add|Update|Delete) File: (.*)$/\2/p'
+}
 
 PHYSICAL_ROOT="$(cd "$REPO_ROOT" 2>/dev/null && pwd -P)" || exit 0
-PHYSICAL_PARENT="$(cd "$(dirname "$ABS")" 2>/dev/null && pwd -P)" || exit 0
-case "$PHYSICAL_PARENT/" in
-  "$PHYSICAL_ROOT/"*) ;;
-  *) exit 0 ;;
-esac
 
-REL="${ABS#$REPO_ROOT/}"
+lint_files=""
+while IFS= read -r FILE; do
+  [ -z "$FILE" ] && continue
 
-# Ghi nhận file đã chạm vào file tạm của session
-record_rc=0
-"$REPO_ROOT/.claude/scripts/record-touched-file.sh" "$REPO_ROOT" "$ABS" || record_rc=$?
-case "$record_rc" in
-  0|10) ;;
-  *)
-    printf '[php-lint hook] ⚠️ Unable to safely record touched file: %s\n' "$ABS" >&2
-    exit 2
-    ;;
-esac
+  # Chỉ xử lý .php
+  case "$FILE" in
+    *.php) ;;
+    *) continue ;;
+  esac
+
+  # Chuẩn hóa về absolute path từ repo root (path có thể tương đối kiểu source/src/...).
+  case "$FILE" in
+    /*) ABS="$FILE" ;;
+    *)  ABS="$REPO_ROOT/$FILE" ;;
+  esac
+
+  PHYSICAL_PARENT="$(cd "$(dirname "$ABS")" 2>/dev/null && pwd -P)" || continue
+  case "$PHYSICAL_PARENT/" in
+    "$PHYSICAL_ROOT/"*) ;;
+    *) continue ;;
+  esac
+
+  REL="${ABS#$REPO_ROOT/}"
+
+  # Ghi nhận cả file PHP bị xóa để Stop hook thấy deletion trong strict verification.
+  record_rc=0
+  "$REPO_ROOT/.claude/scripts/record-touched-file.sh" "$REPO_ROOT" "$ABS" || record_rc=$?
+  case "$record_rc" in
+    0|10) ;;
+    *)
+      printf '[php-lint hook] ⚠️ Unable to safely record touched file: %s\n' "$ABS" >&2
+      exit 2
+      ;;
+  esac
+
+  [ -f "$ABS" ] || continue
+  lint_files="${lint_files}
+${REL}"
+done < <(candidate_files | sort -u)
+
+lint_files="$(printf '%s\n' "$lint_files" | sed '/^$/d' | sort -u)"
+[ -z "$lint_files" ] && exit 0
 
 has_make_target() {
   [ -f "$REPO_ROOT/Makefile.ai" ]
@@ -66,39 +93,49 @@ container_up() {
 
 # Kiểm tra Docker — KHÔNG fallback sang host
 if ! has_make_target; then
-  echo "[php-lint hook] ⚠️ Makefile.ai không tồn tại — bỏ qua lint/format. Chạy tay: AI_FILE=$REL make -f Makefile.ai ai-check" >&2
+  echo "[php-lint hook] ⚠️ Makefile.ai không tồn tại — bỏ qua lint/format." >&2
+  echo "Danh sách file:" >&2
+  printf '%s\n' "$lint_files" | sed 's/^/  - /' >&2
+  echo "Chạy tay: AI_FILE=<file> make -f Makefile.ai ai-check" >&2
   exit 0
 fi
 
 if ! container_up; then
-  echo "[php-lint hook] ⚠️ Container hrm-api không chạy — bỏ qua lint/format. Bật Docker rồi chạy tay: AI_FILE=$REL make -f Makefile.ai ai-check" >&2
+  echo "[php-lint hook] ⚠️ Container hrm-api không chạy — bỏ qua lint/format." >&2
+  echo "Bật Docker rồi chạy tay cho các file sau:" >&2
+  printf '%s\n' "$lint_files" | sed 's/^/  - /' >&2
   exit 0
 fi
 
-# 1) Kiểm tra cú pháp — chặn nếu lỗi
-if ! OUT="$(AI_FILE="$REL" make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-lint 2>&1)"; then
-  {
-    echo "[php-lint hook] make ai-lint FAILED:"
-    printf '%s\n' "$OUT"
-  } >&2
-  exit 2
-fi
+while IFS= read -r REL; do
+  [ -z "$REL" ] && continue
 
-# 2) Auto-format bằng Pint — cảnh báo nếu fail (không chặn vì format là best-effort)
-if ! PINT_OUT="$(AI_FILE="$REL" make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-pint 2>&1)"; then
-  {
-    echo "[php-lint hook] ⚠️ Pint format thất bại — file có thể chưa được format:"
-    printf '%s\n' "$PINT_OUT" | tail -5
-  } >&2
-fi
+  # 1) Kiểm tra cú pháp — chặn nếu lỗi
+  if ! OUT="$(AI_FILE="$REL" make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-lint 2>&1)"; then
+    {
+      echo "[php-lint hook] make ai-lint FAILED: $REL"
+      printf '%s\n' "$OUT"
+    } >&2
+    exit 2
+  fi
 
-# 3) Re-lint sau format (Pint có thể thay đổi syntax)
-if ! OUT2="$(AI_FILE="$REL" make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-lint 2>&1)"; then
-  {
-    echo "[php-lint hook] ❌ Lint thất bại SAU KHI format:"
-    printf '%s\n' "$OUT2"
-  } >&2
-  exit 2
-fi
+  # 2) Auto-format bằng Pint — chặn nếu fail để mọi đường sửa file có cùng chuẩn
+  if ! PINT_OUT="$(AI_FILE="$REL" make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-pint 2>&1)"; then
+    {
+      echo "[php-lint hook] Pint format FAILED: $REL"
+      printf '%s\n' "$PINT_OUT"
+    } >&2
+    exit 2
+  fi
+
+  # 3) Re-lint sau format (Pint có thể thay đổi syntax)
+  if ! OUT2="$(AI_FILE="$REL" make -f "$REPO_ROOT/Makefile.ai" -C "$REPO_ROOT" ai-lint 2>&1)"; then
+    {
+      echo "[php-lint hook] ❌ Lint thất bại SAU KHI format: $REL"
+      printf '%s\n' "$OUT2"
+    } >&2
+    exit 2
+  fi
+done < <(printf '%s\n' "$lint_files")
 
 exit 0

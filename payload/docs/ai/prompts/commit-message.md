@@ -10,7 +10,9 @@
 
 Nhiệm vụ của bạn:
 1. Chạy `git diff --staged` để đọc toàn bộ thay đổi đã được staged.
-2. Nếu không có thay đổi nào được staged, chạy `git diff` để đọc thay đổi chưa staged và cảnh báo rõ rằng commit message được sinh từ nội dung chưa staged. Nếu cả hai lệnh đều không có diff, thông báo không có thay đổi để phân tích và không tự tạo commit message.
-3. Xác định mục đích chính của thay đổi rồi sinh commit message theo đúng quy ước trên.
-4. Nếu diff chứa nhiều nhóm thay đổi không liên quan về mục đích hoặc module, đề xuất tách thành nhiều commit và cung cấp một commit message riêng cho từng nhóm thay vì cố gộp thành một message.
-5. Chỉ in commit message để người dùng tham khảo. **Không tự chạy `git commit` hoặc thay đổi trạng thái Git dưới bất kỳ hình thức nào.**
+2. Nếu không có thay đổi nào được staged, chạy `git diff` để đọc thay đổi chưa staged và cảnh báo rõ rằng commit message được sinh từ nội dung chưa staged.
+3. Luôn chạy `git ls-files --others --exclude-standard -z` để phát hiện file untracked. Nếu có untracked file liên quan, đọc nội dung file đó và đưa vào phân tích; cảnh báo rõ rằng file mới chưa được staged nên commit message có thể không khớp nếu user commit ngay.
+4. Nếu staged, unstaged và untracked đều trống, thông báo không có thay đổi để phân tích và không tự tạo commit message.
+5. Xác định mục đích chính của thay đổi rồi sinh commit message theo đúng quy ước trên.
+6. Nếu diff chứa nhiều nhóm thay đổi không liên quan về mục đích hoặc module, đề xuất tách thành nhiều commit và cung cấp một commit message riêng cho từng nhóm thay vì cố gộp thành một message.
+7. Chỉ in commit message để người dùng tham khảo. **Không tự chạy `git commit` hoặc thay đổi trạng thái Git dưới bất kỳ hình thức nào.**
