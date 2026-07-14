@@ -99,15 +99,11 @@ Liệt kê ít nhất 3 acceptance criteria (AC) dạng Given-When-Then:
 - Timezone → UTC hay local?
 ```
 
-### Bước 5: Nêu giả định chưa xác minh
+### Bước 5: Nêu giả định và Áp dụng Grilling (nếu cần)
 
-```
-## Giả định (CẦN XÁC NHẬN)
-- [ ] <giả định 1 — ảnh hưởng gì nếu sai>
-- [ ] <giả định 2>
-```
-
-Nếu có giả định quan trọng (ảnh hưởng schema, API contract, behavior) → **HỎI user trước khi code** (§11).
+Nếu bạn có các giả định làm thay đổi behavior, schema, API contract, security, hoặc luồng nghiệp vụ chưa rõ ràng, **BẮT BUỘC** dừng việc xuất danh sách kế hoạch lại.
+Thay vào đó, hãy áp dụng kỹ năng `grilling` (Phỏng vấn từng câu một kèm đề xuất).
+Hỏi người dùng câu hỏi quan trọng nhất trước, kèm theo đề nghị của bạn, và chờ họ phản hồi. Không đi tiếp đến Bước 6 cho tới khi đã đạt được shared understanding.
 
 ### Bước 6: Liệt kê file dự kiến thay đổi
 
@@ -191,32 +187,4 @@ AI_TEST=tests/Unit/YTest.php make -f Makefile.ai ai-test
 ---
 
 ## Format xuất kết quả cuối
-
-```markdown
-## Tóm tắt thay đổi
-- <mô tả ngắn>
-
-## Files đã thay đổi
-| File | Hành động |
-|---|---|
-| ... | Tạo mới / Sửa |
-
-## Acceptance Criteria — Kết quả
-- AC1: ✅ / ❌
-- AC2: ✅ / ❌
-
-## Quality Gate
-- Lint: ✅ / ❌
-- Pint: ✅ / ❌
-- Test: ✅ / ❌ (<n> passed, <m> failed)
-
-## Workspace audit
-- Baseline đã ghi nhận: ✅ / ❌
-- Final diff audit: ✅ / ❌
-- Scope creep: Không / Có (<mô tả>)
-
-## Lưu ý
-- <behavior giữ nguyên>
-- <rủi ro cần test thêm>
-- <tài liệu cần cập nhật>
-```
+Xem định dạng chi tiết tại `docs/ai/prompts/references/implement-format.md`. Mọi response kết luận PHẢI dùng format đó.

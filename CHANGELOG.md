@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.9.0] - 2026-07-14
+
+### Added
+- Tính năng Local runner mode (opt-in) qua file `.claude/runner.local` để chạy PHP lint/pint/test siêu tốc trên máy host thay vì Docker.
+- Hỗ trợ Hybrid execution: các thao tác nhẹ chạy local, còn artisan và DB vẫn giao phó cho Docker.
+- Docs: Hướng dẫn setup và chi tiết policy version cho môi trường local (`SETUP-LOCAL.md`).
+- Makefile: Thêm target `ai-check-docker` và `ai-test-docker` để verify cuối cùng trước khi merge.
+
+## [1.8.0] - 2026-07-14
+
+### Added
+- Thêm kiến trúc model-invoked skills (diagnosing-bugs, grilling, hrm-quality-gate, find-reuse-candidates).
+- Thêm CONTEXT.md để đồng nhất từ điển domain HRM.
+- Tách references cho implement và review để áp dụng progressive disclosure.
+- Bổ sung lệnh /debug và /grill.
+
 ## [1.7.2] - 2026-07-13
 
 ### Fixed

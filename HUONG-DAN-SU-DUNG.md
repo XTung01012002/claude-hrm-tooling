@@ -11,7 +11,8 @@ Triết lý: (1) AI tự bám convention ngay từ đầu (đỡ review sửa nh
 | Thành phần | Đường dẫn | Vai trò |
 |---|---|---|
 | **Nguồn chân lý** | `docs/ai/PROJECT-CONVENTIONS.md` | Toàn bộ rule (§0 cấm bịa, §1 reuse+DRY, §2 layering, §4 ORM, §8 multi-tenancy, §9 transaction/webhook, §10 list, §11 giữ behavior). Dùng cho MỌI AI. |
-| **Prompt tái dùng** | `docs/ai/prompts/*.md` (13+ file) | Logic cho review / review-vs-plan / implement / test / api-docs / code-docs / diff-review / verify / refactor / feature / commit / reuse / task-breakdown |
+| **Prompt tái dùng** | `docs/ai/prompts/*.md` (12 file) | Logic cho review / review-vs-plan / implement / test / api-docs / code-docs / diff-review / verify / refactor / feature / commit / reuse / task-breakdown |
+| **Model-invoked Skills** | `skills/` | Tầng skill tự kích hoạt: diagnosing-bugs, grilling, hrm-quality-gate, find-reuse-candidates, writing-hrm-skills |
 | **Claude Code** | `CLAUDE.md` · `.claude/commands/*` · `.claude/hooks/*` + `.claude/settings.json` + `settings.local.json` | rule + lệnh + hook |
 | **Codex** | `AGENTS.md` · `~/.codex/prompts/*` · `.codex/hooks.json` | rule + lệnh + hook |
 | **Antigravity** | `AGENTS.md` · `.agents/workflows/*` · `.agents/hooks.json` | rule + lệnh + hook |
@@ -70,14 +71,15 @@ cd claude-hrm-tooling
 
 ### 3) Verify nhanh
 - Hỏi (không đính kèm file): *"feature mẫu chuẩn của dự án là gì?"* → phải trả lời `SaveZaloAccountStaff`.
-- Gõ `/` xem có `review`/`review-vs-plan`/`implement`/`scaffold-test`/`api-docs`/`code-docs`/`diff-review`/`verify`/`refactor`/`commit-message`/`scaffold-feature`/`find-reuse`/`task-breakdown` không (13+ lệnh).
+- Gõ `/` xem có `review`/`review-vs-plan`/`implement`/`scaffold-test`/`api-docs`/`code-docs`/`diff-review`/`verify`/`refactor`/`commit-message`/`scaffold-feature`/`find-reuse`/`task-breakdown`/`debug`/`grill` không (15+ lệnh).
 - (Claude/Codex) sửa thử 1 file `.php` format xấu → kiểm tra có tự `pint` không.
 
 ---
 
 ## D. Môi trường (RẤT QUAN TRỌNG — local ≠ Docker)
 - Chạy thật trong **Docker container `hrm-api` (PHP 8.2.31)** thông qua script `Makefile.ai`. Host PHP mới hơn không được dùng làm chuẩn verify. Tooling đã có PreToolUse Guard chặn AI tự động verify trên host.
-- Không chạy trực tiếp `php`, `composer`, `php artisan`, `vendor/bin/phpunit`, `vendor/bin/pint` trên host khi kiểm tra code. Nếu Docker down, hooks sẽ **bỏ qua lint/format/test** với cảnh báo — KHÔNG fallback sang host PHP.
+- **Mới (1.9.0)**: Hỗ trợ Local runner mode (chạy PHP tĩnh trên máy host cho nhanh). Xem hướng dẫn cấu hình ở [`docs/ai/SETUP-LOCAL.md`](payload/docs/ai/SETUP-LOCAL.md).
+- Không chạy trực tiếp `php`, `composer`, `php artisan`, `vendor/bin/phpunit`, `vendor/bin/pint` trên host khi kiểm tra code. Nếu Docker down (và chưa cấu hình local runner), hooks sẽ **bỏ qua lint/format/test** với cảnh báo.
 - Lệnh chuẩn cho AI: `AI_FILE=source/... make -f Makefile.ai ai-lint`, `AI_FILE=source/... make -f Makefile.ai ai-pint`, `AI_FILE=source/... make -f Makefile.ai ai-check`, `AI_TEST=tests/Unit/XTest.php make -f Makefile.ai ai-test`, `make -f Makefile.ai ai-route-list`, `AI_ROUTE_PATH=api/v1/... make -f Makefile.ai ai-route-list`.
 - Cài deps trong container: `make shell` → `composer install` → `make copy-vendor` (hoặc dùng target composer sẵn có trong `Makefile`).
 

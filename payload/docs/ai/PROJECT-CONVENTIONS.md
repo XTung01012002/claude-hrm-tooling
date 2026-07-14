@@ -14,6 +14,7 @@
 
 **Đây là quy tắc số 1, đứng trên mọi quy tắc khác.**
 
+- Trước khi đặt tên biến, class hoặc mô tả nghiệp vụ: **đọc `docs/ai/CONTEXT.md`** để đồng nhất ngôn ngữ domain HRM.
 - Trước khi viết/sửa/ghi docs: **đọc file liên quan** và `grep` để xác nhận tên class / method / field / route / enum **thực sự tồn tại**.
 - Chỉ dùng interface / method / field **có thật** trong codebase. Không chắc → tra cứu, **không đoán**.
 - **Không bịa**: không bịa field response, không bịa rule validate, không bịa endpoint, không bịa giá trị enum.
@@ -144,6 +145,15 @@ Response được định nghĩa ở `source/bootstrap/app.php` + `ApiBaseContro
   - Migrate status: `make -f Makefile.ai ai-migrate-status`
   - Kiểm PHP container: `make -f Makefile.ai ai-php-version`
 - Composer/deps vẫn chạy trong container (`make shell` → `composer install` → `make copy-vendor`) hoặc dùng các target composer sẵn có của `Makefile`.
+
+### Local runner mode (opt-in)
+
+Project hỗ trợ Hybrid local mode (chạy PHP tĩnh/test trực tiếp trên host để tăng tốc, Artisan/DB vẫn qua Docker). Để bật, tạo file `.claude/runner.local` (xem chi tiết tại [`SETUP-LOCAL.md`](SETUP-LOCAL.md)).
+
+**Quy tắc version:**
+- Code `source/src` + `source/app`: BẮT BUỘC PHP 8.2-compatible.
+- Test (`source/tests`): Khuyến nghị 8.2 (test dùng syntax 8.3 chỉ chạy được local).
+- Trước merge, luôn chạy `make -f Makefile.ai ai-check-docker` và `make -f Makefile.ai ai-test-docker` để ép verify qua môi trường container 8.2.
 
 ---
 

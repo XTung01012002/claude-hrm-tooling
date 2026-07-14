@@ -3,7 +3,8 @@
 **Nguồn chân lý (đọc & tuân thủ trước khi code/review/viết docs):** [`docs/ai/PROJECT-CONVENTIONS.md`](docs/ai/PROJECT-CONVENTIONS.md).
 File này chỉ tóm tắt; chi tiết + lý do nằm ở đó.
 
-## 3 rule cốt lõi
+## 4 rule cốt lõi
+0. **Đồng nhất domain:** Trước khi đặt tên biến, class hoặc mô tả nghiệp vụ, đọc `docs/ai/CONTEXT.md`.
 1. **Bám sát code thật — KHÔNG bịa.** Đọc/`grep` xác nhận class/method/field/route tồn tại trước khi dùng; không chắc thì tra cứu, không đoán. (PROJECT-CONVENTIONS §0)
 2. **Reuse-first + DRY.** Tìm interface ở `Core/.../Shared/` và repo/util hiện có để tái dùng trước khi tạo mới; lặp cùng logic ≥2 nơi → tách về `Shared/`/`Helper`/Trait, đừng copy. Khuôn mẫu: `source/src/Core/Components/OmnichannelChat/SaveZaloAccountStaff/`. (§1)
 3. **Repo code mới ưu tiên Eloquent ORM** (tránh `DB::table()`/raw cho ghi; legacy query-builder là ngoại lệ). (§4)
@@ -17,9 +18,10 @@ File này chỉ tóm tắt; chi tiết + lý do nằm ở đó.
 - Validation/`BusinessException` thường trả `{ "status":"error", "code", "message", "errors"? }`; auth/500 có legacy envelope khác — đọc `PROJECT-CONVENTIONS` §3.3, không giả định mọi lỗi giống nhau.
 
 ## Môi trường (QUAN TRỌNG)
-- Chạy thật trong **Docker container `hrm-api`**; version pin gần nhất xem `PROJECT-CONVENTIONS` §12 và kiểm bằng `ai-php-version`. Host PHP có thể mới hơn, nhưng **không dùng làm chuẩn verify**.
+- Chạy thật trong **Docker container `hrm-api`**; version pin gần nhất xem `PROJECT-CONVENTIONS` §12 và kiểm bằng `ai-php-version`. Host PHP chỉ để tham khảo, **không dùng làm chuẩn verify**.
 - Không chạy trực tiếp `php`, `composer`, `php artisan`, `vendor/bin/phpunit`, `vendor/bin/pint` trên host khi kiểm tra code.
-- Lệnh chuẩn cho AI: `AI_FILE=source/... make -f Makefile.ai ai-lint`, `AI_FILE=source/... make -f Makefile.ai ai-pint`, `AI_TEST=tests/Unit/XTest.php make -f Makefile.ai ai-test`, `make -f Makefile.ai ai-route-list`, `AI_ROUTE_PATH=api/v1/... make -f Makefile.ai ai-route-list`, `make -f Makefile.ai ai-php-version`. Lệnh ghi dữ liệu (migrate, seed, cache:clear...) phải chạy tay.
+- Lệnh chuẩn cho AI sau khi sửa PHP: `AI_FILE=source/... make -f Makefile.ai ai-lint` + `ai-pint` (+ `AI_TEST=... make -f Makefile.ai ai-test` nếu có test). Artisan read-only: `make -f Makefile.ai ai-route-list`, `ai-migrate-status`, `ai-about`, `ai-event-list`. Lệnh ghi dữ liệu phải chạy tay.
+- Hỗ trợ **Local runner mode (opt-in)** (nhanh hơn nhưng dùng PHP host): bật qua `touch .claude/runner.local`. Bắt buộc chạy `make -f Makefile.ai ai-check-docker` và `ai-test-docker` để ép verify qua container chuẩn trước khi merge.
 
 ## Slash commands & Skills (Backed by `docs/ai/prompts/*.md`)
 - `/review` → review diff theo checklist, verdict `PASS` / `PASS_WITH_CONCERNS` / `REQUEST_CHANGES` / `BLOCKED_INSUFFICIENT_CONTEXT` (`docs/ai/prompts/review.md`).
@@ -35,3 +37,5 @@ File này chỉ tóm tắt; chi tiết + lý do nằm ở đó.
 - `/refactor` → review/refactor code giữ behavior, có mức độ 🔴🟡🟢 (`docs/ai/prompts/refactor.md`).
 - `/find-reuse` → tìm logic/interface có thể tái sử dụng trước khi tạo mới (`docs/ai/prompts/find-reuse.md`).
 - `/task-breakdown` → Task breakdown: `.agents/skills/task-breakdown/SKILL.md`
+- `/debug` → Chẩn đoán bug qua 6 bước (Dựng test đỏ, Thu nhỏ, Giả thuyết, Instrument, Fix, Dọn dẹp) (`.claude/commands/debug.md`).
+- `/grill` → Phỏng vấn từng câu một kèm đề xuất trước khi implement (`.claude/commands/grill.md`).

@@ -195,7 +195,7 @@ test_implement_requires_baseline_and_final_audit() {
   grep -q 'git status --short' "$file" || return 1
   grep -q 'Sửa/tạo code theo loại task' "$file" || return 1
   grep -q 'Final diff audit' "$file" || return 1
-  grep -q 'Workspace audit' "$file" || return 1
+  grep -q 'Workspace audit' "$ROOT/payload/docs/ai/prompts/references/implement-format.md" || return 1
   ! grep -q 'Theo khuôn feature §3: Command/Query + Handler + ValidationInterface' "$file" || return 1
 }
 

@@ -168,6 +168,19 @@ container_up() {
   ( cd "$REPO_ROOT/docker/local" 2>/dev/null && docker compose exec -T hrm-api true >/dev/null 2>&1 )
 }
 
+runner_ready() {
+  local conf_file="$REPO_ROOT/.claude/runner.local"
+  [ -f "$conf_file" ] || return 1
+  local content
+  content="$(cat "$conf_file")"
+  if [ -n "$content" ]; then
+    [ -x "$content" ] || return 1
+  else
+    command -v php >/dev/null 2>&1 || return 1
+  fi
+  return 0
+}
+
 append_diff_paths() {
   mode_arg="$1"
   output=""
@@ -358,10 +371,10 @@ if ! has_make_target; then
   unverified "Makefile.ai không tồn tại. Cần cài tooling hoặc chạy test thủ công trong container."
 fi
 
-if ! container_up; then
+if ! runner_ready && ! container_up; then
   {
-    echo "[run-related-tests hook] ⚠️ UNVERIFIED — container hrm-api không chạy."
-    echo "Bật Docker rồi chạy test liên quan:"
+    echo "[run-related-tests hook] ⚠️ UNVERIFIED — container hrm-api không chạy và chưa cấu hình runner local."
+    echo "Bật Docker hoặc tạo .claude/runner.local rồi chạy test liên quan:"
     printf '%s\n' "$tests_to_run" | tr ' ' '\n' | sed '/^$/d; s#^#  AI_TEST=#; s#$# make -f Makefile.ai ai-test#'
     if [ "$TEST_MODE" = "strict" ]; then
       echo "[mode=strict] Chặn: không thể xác minh test liên quan."
