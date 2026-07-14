@@ -71,7 +71,7 @@ cd claude-hrm-tooling
 
 ### 3) Verify nhanh
 - Hỏi (không đính kèm file): *"feature mẫu chuẩn của dự án là gì?"* → phải trả lời `SaveZaloAccountStaff`.
-- Gõ `/` xem có `review`/`review-vs-plan`/`implement`/`scaffold-test`/`api-docs`/`code-docs`/`diff-review`/`verify`/`refactor`/`commit-message`/`scaffold-feature`/`find-reuse`/`task-breakdown` không (13 lệnh).
+- Gõ `/` xem có `review`/`review-vs-plan`/`implement`/`scaffold-test`/`api-docs`/`code-docs`/`diff-review`/`verify`/`refactor`/`commit-message`/`scaffold-feature`/`find-reuse`/`task-breakdown`/`debug`/`grill` không (15+ lệnh).
 - (Claude/Codex) sửa thử 1 file `.php` format xấu → kiểm tra có tự `pint` không.
 
 ---

@@ -29,7 +29,7 @@ runner_local_enabled() {
   content="$(cat "$conf_file")"
   if [ -n "$content" ]; then
     [[ "$content" =~ ^[A-Za-z0-9./_-]+$ ]] || die "Invalid runner.local content: $content"
-    [ -x "$content" ] || die "PHP binary in runner.local does not exist or is not executable: $content"
+    command -v "$content" >/dev/null 2>&1 || die "PHP binary in runner.local does not exist or is not executable: $content"
     php_bin="$content"
   else
     php_bin="php"
@@ -39,7 +39,7 @@ runner_local_enabled() {
 }
 
 host_exec() {
-  echo "⚠️ LOCAL MODE — PHP <8.3.x> trên host; chuẩn cuối vẫn là container 8.2.31 (chạy ai-check-docker/ai-test-docker trước khi merge)." >&2
+  echo "⚠️ LOCAL MODE — $("$php_bin" -v | head -1) trên host; chuẩn cuối vẫn là container 8.2.31 (chạy ai-check-docker/ai-test-docker trước khi merge)." >&2
   (
     cd "$repo_root/source"
     exec "$php_bin" "$@"
